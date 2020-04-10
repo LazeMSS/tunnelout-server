@@ -1,6 +1,6 @@
 #!/usr/bin/env node -r esm
 
-import 'localenv';
+import 'dotenv';
 import optimist from 'optimist';
 
 import log from 'book';
