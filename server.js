@@ -6,6 +6,9 @@ import http from 'http';
 import { hri } from 'human-readable-ids';
 import Router from 'koa-router';
 
+import https from 'https'
+import fs from 'fs'
+
 import ClientManager from './lib/ClientManager';
 
 const debug = Debug('localtunnel:server');
@@ -15,7 +18,7 @@ export default function(opt) {
 
     const validHosts = (opt.domain) ? [opt.domain] : undefined;
     const myTldjs = tldjs.fromUserSettings({ validHosts });
-    const landingPage = opt.landing || 'https://localtunnel.github.io/www/';
+    const landingPage = opt.landing || 'https://cloudkit.app';
 
     function GetClientIdFromHostname(hostname) {
         return myTldjs.getSubdomain(hostname);
@@ -113,7 +116,10 @@ export default function(opt) {
         return;
     });
 
-    const server = http.createServer();
+    const server = https.createServer({
+                                        key: fs.readFileSync(process.env.SSL_KEY),
+                                        cert: fs.readFileSync(process.env.SSL_CERT)
+                                      });
 
     const appCallback = app.callback();
 
