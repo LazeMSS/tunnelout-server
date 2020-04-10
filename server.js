@@ -116,10 +116,15 @@ export default function(opt) {
         return;
     });
 
-    const server = https.createServer({
-                                        key: fs.readFileSync(process.env.SSL_KEY),
-                                        cert: fs.readFileSync(process.env.SSL_CERT)
-                                      });
+let server;
+if (opt.secure) {
+  server = https.createServer({
+                                      key: fs.readFileSync(process.env.SSL_KEY),
+                                      cert: fs.readFileSync(process.env.SSL_CERT)
+                                    });
+} else {
+  server = http.createServer()
+}
 
     const appCallback = app.callback();
 
