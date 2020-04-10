@@ -19,8 +19,8 @@ The above are important as the client will ask the server for a subdomain under 
 
 ```shell
 # pick a place where the files will live
-git clone git://github.com/defunctzombie/localtunnel-server.git
-cd localtunnel-server
+git clone git://github.com/cloudkitapp/tunnel-server.git
+cd tunnel-server
 npm install
 
 # server set to run on port 1234

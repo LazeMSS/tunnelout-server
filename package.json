@@ -1,12 +1,12 @@
 {
-  "author": "Roman Shtylman <shtylman@gmail.com>",
-  "name": "localtunnel-server",
+  "author": "Hélio <insign@gmail.com>",
+  "name": "ck-tunnel-server",
   "description": "expose localhost to the world",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/localtunnel/server.git"
+    "url": "git://github.com/cloudkitapp/tunnel-server.git"
   },
   "dependencies": {
     "book": "1.3.3",
@@ -28,7 +28,7 @@
   },
   "scripts": {
     "test": "mocha --check-leaks --require esm './**/*.test.js'",
-    "start": "./bin/server",
+    "start": "node -r esm ./bin/server",
     "dev": "node-dev bin/server --port 3000"
   }
 }
