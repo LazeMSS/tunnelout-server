@@ -121,10 +121,6 @@ commander@2.11.0:
   version "2.11.0"
   resolved "https://registry.yarnpkg.com/commander/-/commander-2.11.0.tgz#157152fd1e7a6c8d98a5b715cf376df928004563"
 
-commander@2.5.0:
-  version "2.5.0"
-  resolved "https://registry.yarnpkg.com/commander/-/commander-2.5.0.tgz#d777b6a4d847d423e5d475da864294ac1ff5aa9d"
-
 component-emitter@^1.2.0:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/component-emitter/-/component-emitter-1.2.1.tgz#137918d6d78283f7df7a6b7c5a63e140e69425e6"
@@ -206,6 +202,11 @@ destroy@^1.0.3:
 diff@3.5.0:
   version "3.5.0"
   resolved "https://registry.yarnpkg.com/diff/-/diff-3.5.0.tgz#800c0dd1e0a8bfbc95835c202ad220fe317e5a12"
+
+dotenv@8.2.0:
+  version "8.2.0"
+  resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-8.2.0.tgz#97e619259ada750eea3e4ea3e26bceea5424b16a"
+  integrity sha512-8sJ78ElpbDJBHNeBzUbUVLsqKdccaa/BXF1uPTw3GrvQTBgrQrtObr2mUrE38vzYd8cEv+m/JBfDLioYcfXoaw==
 
 dynamic-dedupe@^0.2.0:
   version "0.2.0"
@@ -506,12 +507,6 @@ load-json-file@^1.0.0:
     pify "^2.0.0"
     pinkie-promise "^2.0.0"
     strip-bom "^2.0.0"
-
-localenv@0.2.2:
-  version "0.2.2"
-  resolved "https://registry.yarnpkg.com/localenv/-/localenv-0.2.2.tgz#c508f29d3485bdc9341d3ead17f61c5abd1b0bab"
-  dependencies:
-    commander "2.5.0"
 
 lodash._arraycopy@^3.0.0:
   version "3.0.0"
