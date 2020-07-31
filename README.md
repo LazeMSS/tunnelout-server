@@ -5,7 +5,7 @@ localtunnel exposes your localhost to the world for easy testing and sharing! No
 
 This repo is the server component. If you are just looking for the CLI localtunnel app, see (https://github.com/localtunnel/localtunnel).
 
-## overview ##
+## Overview ##
 
 The default localtunnel client connects to the `localtunnel.me` server. You can, however, easily set up and run your own server. In order to run your own localtunnel server you must ensure that your server can meet the following requirements:
 
@@ -14,7 +14,7 @@ The default localtunnel client connects to the `localtunnel.me` server. You can,
 
 The above are important as the client will ask the server for a subdomain under a particular domain. The server will listen on any OS-assigned TCP port for client connections.
 
-#### setup
+#### Setup
 
 ```shell
 # pick a place where the files will live
@@ -30,7 +30,7 @@ The localtunnel server is now running and waiting for client requests on port 12
 
 **NOTE** By default, localtunnel will use subdomains for clients, if you plan to host your localtunnel server itself on a subdomain you will need to use the _--domain_ option and specify the domain name behind which you are hosting localtunnel. (i.e. my-localtunnel-server.example.com)
 
-#### use your server
+#### Use your server from a client
 
 You can now use your domain with the `--host` flag for the `lt` client.
 
@@ -42,6 +42,43 @@ You will be assigned a URL similar to `heavy-puma-9.example.tld:1234`.
 
 If your server is acting as a reverse proxy (i.e. nginx) and is able to listen on port 80, then you do not need the `:1234` part of the hostname for the `lt` client.
 
+## Parameters
+
+#### --secure
+Set this parameter to run the server as a secure server - you will need to provide the path to the certificates using the [.env file](#env-file) 
+
+#### --port
+Set the port that the tunnel-server will be listing for connects from the localtunnel clients(lt), this is also the port all webpages will be served on. Setting this to 443 will secure the flows. Remeber to use the same port on the lt client by specifying the port name after the webserver-address of your localtunnel server ie: https://example.com:PORTNUMBER
+
+#### --address
+The address the localtunnel server should bind to - this is normally not something you need to change
+
+#### --domain
+Specify the base domain name. This is optional if hosting localtunnel from a regular example.com domain. This is required if hosting a localtunnel server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.come)
+
+#### --max-sockets
+Maximum number of tcp sockets each client is allowed to establish at one time (number of tunnels)
+
+#### --landing
+The landing page for redirect from root domain - if a user enters the "root" domain your running localtunnel server on.
+
+## .env file
+The .env file resides inside the same folder as localtunnel files and contains a couple of parameters that is normally "fixed". These should be edited if you need to enable the user security features and serve the content using a proper secure https connection..
+
+#### DEBUG=localtunnel*
+Just leave it :)
+
+#### SSL_KEY=/etc/letsencrypt/live/example.tld/privkey.pem
+#### SSL_CERT=/etc/letsencrypt/live/example.tld/fullchain.pem
+Where are the certificates for your domain stored - change them to the real path. In this example we are assuming letsencrypt is used.
+
+#### API_KEY=SECRETAPIKEYHERE
+If this is set then the REST APIs are "secured" by always demanding this keys is sent in the header as "x-api-key: SECRETAPIKEYHERE". This way the public API is a bit shielded from prying eyes.
+
+#### USERSFILE=users.json
+If this parameter is set then this file is used for checking if the user is allowed to connect. The fileformat is really simple at the moment it's just a simple json file and the key is looked up. Look into [users.json](./users.json) for an example file
+
+
 ## REST API
 
 ### GET /api/tunnels
@@ -51,6 +88,12 @@ Create a new tunnel. A LocalTunnel client posts to this enpoint to request a new
 ### GET /api/status
 
 General server information.
+
+### API security
+Se the [API_KEY=SECRETAPIKEYHERE](#API_KEY=SECRETAPIKEYHERE) on how to configure this. Heres an example on how to request the API when the secret is enabled:
+```shell
+curl -i -H "x-api-key: SECRETAPIKEYHERE" https://example.tld/api/status
+```
 
 ## Deploy
 
