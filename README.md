@@ -90,7 +90,7 @@ Create a new tunnel. A LocalTunnel client posts to this enpoint to request a new
 General server information.
 
 ### API security
-Se the [API_KEY=SECRETAPIKEYHERE](#API_KEY=SECRETAPIKEYHERE) on how to configure this. Heres an example on how to request the API when the secret is enabled:
+Se the [API_KEY=SECRETAPIKEYHERE](#api_keysecretapikeyhere) on how to configure this. Heres an example on how to request the API when the secret is enabled:
 ```shell
 curl -i -H "x-api-key: SECRETAPIKEYHERE" https://example.tld/api/status
 ```
