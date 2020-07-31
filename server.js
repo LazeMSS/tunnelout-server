@@ -27,6 +27,7 @@ export default function(opt) {
 
 	const app = new Koa();
 	const router = new Router();
+	let UsersList = {};
 
 	// Lookup a hostname based on the client id
 	function GetClientIdFromHostname(hostname) {
@@ -49,6 +50,7 @@ export default function(opt) {
 				process.exit(1);
 				return false
 			}
+
 			// Do we have the user header
 			if (ctx.request.headers['x-user-key'] === undefined){
 				debug('x-user-key header is missing!');
@@ -56,28 +58,44 @@ export default function(opt) {
 			}
 
 			const usrid = ctx.request.headers['x-user-key'];
-			let users = '';
+
+			// Do we have a user list
+			if (!Object.keys(UsersList).length){
+				loadUsers();
+			}
+
+			// Did we find the user
+			if (UsersList.hasOwnProperty(usrid)){
+				debug('User approved - success, Client IP: %s',ctx.request.ip);
+				return true;
+			}
+			debug('User "%s" not found - failure, Client IP: %s',usrid,ctx.request.ip);
+			return false;
+		}
+		return true;
+	}
+	function loadUsers(){
+		// Get users
+		if (process.env.USERSFILE  !== undefined){
+			// Do we have the file
+			if (!fs.existsSync(process.env.USERSFILE)){
+				debug('"%s" file not found',process.env.USERSFILE);
+				process.exit(1);
+				return false
+			}
 			//try read the file
 			try {
 				var data = fs.readFileSync(process.env.USERSFILE);
-				users = JSON.parse(data);
+				UsersList = JSON.parse(data);
 			} catch (err) {
 				debug('User failed - unable to read/parse the users file');
 				process.exit(1);
 				return false;
 			}
-
-			// Did we find the user
-			if (users.hasOwnProperty(usrid)){
-				debug('User approved - success');
-				return true;
-			}
-			debug('User not found - failure');
-			return false;
+			debug('Userlist read, found: %s entries',Object.keys(UsersList).length);
 		}
-		return true;
-	}
 
+	}
 
 	router.get('/api/status', async (ctx, next) => {
 		if (checkAPI(ctx)){
@@ -88,6 +106,27 @@ export default function(opt) {
 		ctx.body = {
 			tunnels: stats.tunnels,
 			mem: process.memoryUsage(),
+		};
+	});
+
+	router.get('/api/reloadUsers', async (ctx, next) => {
+		if (checkAPI(ctx)){
+			debug('/api/reloadUsers was blocked for %s',ctx.request.ip);
+			ctx.throw(403, 'Forbidden');
+		}
+
+		// Do we have a users file?
+		if (process.env.USERSFILE  === undefined){
+			return true;
+		}
+		var prevUsers = Object.keys(UsersList).length;
+
+		// Load the users list
+		loadUsers();
+
+		ctx.body = {
+			noUsers: Object.keys(UsersList).length,
+			PrevNoUsers: prevUsers
 		};
 	});
 
@@ -194,6 +233,8 @@ export default function(opt) {
 		server = http.createServer();
 		debug('Running insecure server, http');
 	}
+
+	loadUsers();
 
 	const appCallback = app.callback();
 
