@@ -1,6 +1,5 @@
 # localtunnel-server
-
-[![Build Status](https://travis-ci.org/localtunnel/server.svg?branch=master)](https://travis-ci.org/localtunnel/server)
+**NOTE** This is my WIP on an improved version of tunnel-server based on: https://github.com/cloudatlasid/tunnel-server/
 
 localtunnel exposes your localhost to the world for easy testing and sharing! No need to mess with DNS or deploy just to have others test out your changes.
 
@@ -19,12 +18,12 @@ The above are important as the client will ask the server for a subdomain under 
 
 ```shell
 # pick a place where the files will live
-git clone git://github.com/cloudkitapp/tunnel-server.git
+git clone git://github.com/LazeMSS/tunnel-server.git
 cd tunnel-server
 npm install
 
 # server set to run on port 1234
-sudo ./startserver.sh --port 1234
+sudo ./startserver.sh --port 1234 --domain example.tld --secure --landing "https://yourwebpage.com"
 ```
 
 The localtunnel server is now running and waiting for client requests on port 1234. You will most likely want to set up a reverse proxy to listen on port 80 (or start localtunnel on port 80 directly).
@@ -36,16 +35,16 @@ The localtunnel server is now running and waiting for client requests on port 12
 You can now use your domain with the `--host` flag for the `lt` client.
 
 ```shell
-lt --host http://sub.example.tld:1234 --port 9000
+lt --host http://example.tld:1234 --port 9000
 ```
 
-You will be assigned a URL similar to `heavy-puma-9.sub.example.com:1234`.
+You will be assigned a URL similar to `heavy-puma-9.example.tld:1234`.
 
 If your server is acting as a reverse proxy (i.e. nginx) and is able to listen on port 80, then you do not need the `:1234` part of the hostname for the `lt` client.
 
 ## REST API
 
-### POST /api/tunnels
+### GET /api/tunnels
 
 Create a new tunnel. A LocalTunnel client posts to this enpoint to request a new tunnel with a specific name or a randomly assigned name.
 
