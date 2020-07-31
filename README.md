@@ -76,6 +76,7 @@ Where are the certificates for your domain stored - change them to the real path
 If this is set then the REST APIs are "secured" by always demanding this keys is sent in the header as "x-api-key: SECRETAPIKEYHERE". This way the public API is a bit shielded from prying eyes.
 
 #### USERSFILE=users.json
+**WIP: This requires a special version of the lt client**
 If this parameter is set then this file is used for checking if the user is allowed to connect. The fileformat is really simple at the moment it's just a simple json file and the key is looked up. Look into [users.json](./users.json) for an example file
 
 
