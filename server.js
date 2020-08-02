@@ -44,13 +44,6 @@ export default function(opt) {
 
 	function checkUserLogin(ctx){
 		if (process.env.USERSFILE  !== undefined){
-			// Do we have the file
-			if (!fs.existsSync(process.env.USERSFILE)){
-				debug('"%s" file not found',process.env.USERSFILE);
-				process.exit(1);
-				return false
-			}
-
 			// Do we have the user header
 			if (ctx.request.headers['x-user-key'] === undefined){
 				debug('x-user-key header is missing!');
@@ -74,6 +67,7 @@ export default function(opt) {
 		}
 		return true;
 	}
+
 	function loadUsers(){
 		// Get users
 		if (process.env.USERSFILE  !== undefined){
@@ -97,22 +91,13 @@ export default function(opt) {
 
 	}
 
-	router.get('/api/status', async (ctx, next) => {
-		if (checkAPI(ctx)){
-			debug('/api/status was blocked for %s',ctx.request.ip);
-			ctx.throw(403, 'Forbidden');
-		}
-		const stats = manager.stats;
-		ctx.body = {
-			tunnels: stats.tunnels,
-			mem: process.memoryUsage(),
-		};
-	});
 
+	// ROUTES FOR APIs
 	router.get('/api/reloadUsers', async (ctx, next) => {
-		if (checkAPI(ctx)){
+		if (!checkAPI(ctx)){
 			debug('/api/reloadUsers was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
+			return;
 		}
 
 		// Do we have a users file?
@@ -130,10 +115,26 @@ export default function(opt) {
 		};
 	});
 
+	router.get('/api/status', async (ctx, next) => {
+		if (!checkAPI(ctx)){
+			debug('/api/status was blocked for %s',ctx.request.ip);
+			ctx.throw(403, 'Forbidden');
+			return;
+		}
+		const stats = manager.stats;
+		ctx.body = {
+			tunnels: stats.tunnels,
+			mem: process.memoryUsage(),
+		};
+	});
+
+
+	// Reload uses on request
 	router.get('/api/tunnels/:id/status', async (ctx, next) => {
 		if (checkAPI(ctx)){
 			debug('/api/tunnels/:id/status was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
+			return;
 		}
 		const clientId = ctx.params.id;
 		const client = manager.getClient(clientId);
@@ -155,17 +156,23 @@ export default function(opt) {
 	// root endpoint
 	app.use(async (ctx, next) => {
 		const path = ctx.request.path;
-
+		// Skip if forbidden
+		if (ctx.status == 403){
+			await next();
+			return;
+		}
 		// skip anything not on the root path
 		if (path !== '/') {
 			await next();
 			return;
 		}
 
+		// Did we request a new endpoint
 		const isNewClientRequest = ctx.query['new'] !== undefined;
 		if (isNewClientRequest) {
 			if (!checkUserLogin(ctx)){
 				ctx.throw(403, 'Forbidden');
+				await next();
 				return;
 			}
 
@@ -187,6 +194,11 @@ export default function(opt) {
 	// This is a backwards compat feature
 	app.use(async (ctx, next) => {
 		const parts = ctx.request.path.split('/');
+		// Skip if forbidden
+		if (ctx.status == 403){
+			await next();
+			return;
+		}
 
 		// any request with several layers of paths is not allowed
 		// rejects /foo/bar
@@ -196,13 +208,14 @@ export default function(opt) {
 			return;
 		}
 
+		// Check if user login is needed and if so ok
 		if (!checkUserLogin(ctx)){
 			ctx.throw(403, 'Forbidden');
+			await next();
 			return;
 		}
 
 		const reqId = parts[1];
-
 		// limit requested hostnames to 63 characters
 		if (! /^(?:[a-z0-9][a-z0-9\-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqId)) {
 			const msg = 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.';
