@@ -42,6 +42,16 @@ export default function(opt) {
 		return true;
 	}
 
+	function getUserHostName(ctx){
+		if (process.env.USERSFILE  !== undefined && ctx.request.headers['x-user-key'] !== undefined){
+			const usrid = ctx.request.headers['x-user-key'];
+			if (UsersList.hasOwnProperty(usrid)){
+				return UsersList[usrid];
+			}
+		}
+		return null;
+	}
+
 	function checkUserLogin(ctx){
 		if (process.env.USERSFILE  !== undefined){
 			// Do we have the user header
@@ -58,7 +68,7 @@ export default function(opt) {
 			}
 
 			// Did we find the user
-			if (UsersList.hasOwnProperty(usrid)){
+			if (UsersList.hasOwnProperty(usrid) || UsersList.includes(usrid)){
 				debug('User approved - success, Client IP: %s',ctx.request.ip);
 				return true;
 			}
@@ -153,7 +163,7 @@ export default function(opt) {
 	app.use(router.routes());
 	app.use(router.allowedMethods());
 
-	// root endpoint
+	// root endpoint for new/random clients
 	app.use(async (ctx, next) => {
 		const path = ctx.request.path;
 		// Skip if forbidden
@@ -175,9 +185,13 @@ export default function(opt) {
 				await next();
 				return;
 			}
-
-			const reqId = hri.random();
-			debug('making new client with id %s', reqId);
+			let reqId = getUserHostName(ctx);
+			if (reqId == null){
+				reqId = hri.random();
+				debug('making new random client with id "%s"', reqId);
+			}else{
+				debug('making new client with id "%s"', reqId);
+			}
 			const info = await manager.newClient(reqId);
 
 			const url = schema + '://' + info.id + '.' + ctx.request.host;
@@ -226,7 +240,7 @@ export default function(opt) {
 			return;
 		}
 
-		debug('making new client with id %s', reqId);
+		debug('making new client with id "%s"', reqId);
 		const info = await manager.newClient(reqId);
 
 		const url = schema + '://' + info.id + '.' + ctx.request.host;
