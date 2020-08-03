@@ -110,7 +110,6 @@ export default function(opt) {
 		// Did we pass?
 		if (!authThis(auth,cUsr,cPass)){
 			debug("Client auth failed");
-			debug("Auth failed");
 			res.statusCode = 401;
 			res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
 			res.end('Failed');
@@ -252,10 +251,7 @@ export default function(opt) {
 			return;
 		}
 
-		const stats = client.stats();
-		ctx.body = {
-			connected_sockets: stats.connectedSockets,
-		};
+		ctx.body = client.stats();
 	});
 
 
@@ -351,6 +347,7 @@ export default function(opt) {
 			await next();
 			return;
 		}
+
 
 		var reqId = parts[1];
 		// limit requested hostnames to 63 characters
