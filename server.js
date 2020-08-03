@@ -5,7 +5,6 @@ import Debug from 'debug';
 import http from 'http';
 import { hri } from 'human-readable-ids';
 import Router from 'koa-router';
-import auth from 'koa-basic-auth'
 
 import https from 'https'
 import fs from 'fs'
@@ -35,34 +34,65 @@ export default function(opt) {
 		return myTldjs.getSubdomain(hostname);
 	}
 
+	function authThis(authval,user,pass){
+		var tmp = authval.split(' ');
+		var buf = new Buffer(tmp[1], 'base64');
+		var plain_auth = buf.toString();
+		var creds = plain_auth.split(':');
+		var ausername = creds[0];
+		var apassword = creds[1];
+		if((ausername == user) && (apassword == pass)) {
+			return true;
+		}
+		return false;
+	}
+
 	// Wrapper function for basic auth - hack but it works fast
-	function apiBasicAuth(){
+	function apiBasicAuth(ctx){
 		// Do we have basic auth
 		if (process.env.API_BASICAUTH === undefined || process.env.API_BASICAUTH === "false"){
-			debug("API Basic auth not configured or false");
-			return function(ctx){};
+			return true;
 		}else{
 			// Lookup auth info
 			var authIDs = process.env.API_BASICAUTH.split(":");
 			if (authIDs.length != 2){
 				debug('Bad configuration of API_BASICAUTH: "%s"',process.env.API_BASICAUTH);
 				process.exit(1);
+				return false;
 			}
-			debug("API Basic auth configured");
-			return auth({ name: authIDs[0], pass: authIDs[1] });
+			// Taken from: https://gist.github.com/charlesdaniel/1686663
+			var auth = ctx.request.headers['authorization'];
+			if(!auth) {
+				debug("Auth needed");
+				ctx.throw(401, 'Forbidden');
+				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
+				ctb.body = 'Auth needed';
+				return false;
+			}
+
+			if (!authThis(auth,authIDs[0],authIDs[1])){
+				debug("Auth failed");
+				ctx.throw(401, 'Forbidden');
+				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
+				ctb.body = 'Auth failed';
+				return false;
+			}
+			debug("Auth approved");
+			return true;
 		}
 	}
 
 	// If requested we can have an api key
-	function checkAPI(ctx) {
-		if (process.env.API_KEY !== undefined && ctx.request.headers['x-api-key'] != process.env.API_KEY){
+	function apiKeyCheck(ctx) {
+		// Check if the key is present
+		if (process.env.API_KEY !== undefined && process.env.API_KEY != "" && process.env.API_KEY != "false" && ctx.request.headers['x-api-key'] != process.env.API_KEY){
 			return false;
 		}
 		return true;
 	}
 
 	function getUserHostName(ctx){
-		if (process.env.USERSFILE  !== undefined && ctx.request.headers['x-user-key'] !== undefined){
+		if (process.env.USERSFILE !== undefined && ctx.request.headers['x-user-key'] !== undefined){
 			const usrid = ctx.request.headers['x-user-key'];
 			if (UsersList.hasOwnProperty(usrid)){
 				return UsersList[usrid];
@@ -123,7 +153,12 @@ export default function(opt) {
 
 	// ROUTES FOR APIs
 	router.get('/api/reloadUsers', async (ctx, next) => {
-		if (!checkAPI(ctx)){
+		// Basic auth check
+		if (!apiBasicAuth(ctx)){
+			return;
+		}
+		// Api header key
+		if (!apiKeyCheck(ctx)){
 			debug('/api/reloadUsers was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
 			return;
@@ -144,8 +179,15 @@ export default function(opt) {
 		};
 	});
 
-	router.get('/api/status',apiBasicAuth(), async (ctx, next) => {
-		if (!checkAPI(ctx)){
+	router.get('/api/status', async (ctx, next) => {
+
+		// Basic auth check
+		if (!apiBasicAuth(ctx)){
+			return;
+		}
+
+		// Api header key
+		if (!apiKeyCheck(ctx)){
 			debug('/api/status was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
 			return;
@@ -160,8 +202,13 @@ export default function(opt) {
 
 
 	// Reload uses on request
-	router.get('/api/tunnels/:id/status',apiBasicAuth(), async (ctx, next) => {
-		if (checkAPI(ctx)){
+	router.get('/api/tunnels/:id/status', async (ctx, next) => {
+		// Basic auth check
+		if (!apiBasicAuth(ctx)){
+			return;
+		}
+		// Api header key
+		if (apiKeyCheck(ctx)){
 			debug('/api/tunnels/:id/status was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
 			return;
@@ -334,7 +381,6 @@ export default function(opt) {
 			res.end('404');
 			return;
 		}
-
 		client.handleRequest(req, res);
 	});
 
