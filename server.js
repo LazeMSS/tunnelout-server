@@ -56,7 +56,7 @@ export default function(opt) {
 			// Lookup auth info
 			var authIDs = process.env.API_BASICAUTH.split(":");
 			if (authIDs.length != 2){
-				debug('Bad configuration of API_BASICAUTH: "%s"',process.env.API_BASICAUTH);
+				console.error('Bad configuration of API_BASICAUTH: "%s"',process.env.API_BASICAUTH);
 				process.exit(1);
 				return false;
 			}
@@ -64,7 +64,7 @@ export default function(opt) {
 			var auth = ctx.request.headers['authorization'];
 			if(!auth) {
 				debug("Auth needed");
-				ctx.throw(401, 'Forbidden');
+				ctx.throw(401, 'Unauthorized ');
 				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
 				ctb.body = 'Auth needed';
 				return false;
@@ -72,7 +72,7 @@ export default function(opt) {
 
 			if (!authThis(auth,authIDs[0],authIDs[1])){
 				debug("Auth failed");
-				ctx.throw(401, 'Forbidden');
+				ctx.throw(401, 'Unauthorized ');
 				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
 				ctb.body = 'Auth failed';
 				return false;
@@ -91,6 +91,36 @@ export default function(opt) {
 		return true;
 	}
 
+	// Auth a client
+	function clientAuth(req, res,client){
+		var cUsr = client.getAuthUsr();
+		var cPass = client.getAuthPass();
+		// Nothing to validate against
+		if (cUsr == null || cPass == null){
+			return true;
+		}
+		var auth = req.headers['authorization'];  // auth is in base64(username:password)  so we need to decode the base64
+		if(!auth) {     // No Authorization header was passed in so it's the first time the browser hit us
+			debug("Client auth missing");
+			res.statusCode = 401;
+			res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
+			res.end('Auth needed');
+			return;
+		}
+		// Did we pass?
+		if (!authThis(auth,cUsr,cPass)){
+			debug("Client auth failed");
+			debug("Auth failed");
+			res.statusCode = 401;
+			res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
+			res.end('Failed');
+			return false;
+		}
+		return true;
+	}
+
+
+	// Get a users hostname from the users file
 	function getUserHostName(ctx){
 		if (process.env.USERSFILE !== undefined && ctx.request.headers['x-user-key'] !== undefined){
 			const usrid = ctx.request.headers['x-user-key'];
@@ -101,6 +131,7 @@ export default function(opt) {
 		return null;
 	}
 
+	// Check if a user allowed to request a tunnel
 	function checkUserLogin(ctx){
 		if (process.env.USERSFILE  !== undefined){
 			// Do we have the user header
@@ -127,12 +158,13 @@ export default function(opt) {
 		return true;
 	}
 
+	// Reload users from the users.json file
 	function loadUsers(){
 		// Get users
 		if (process.env.USERSFILE  !== undefined){
 			// Do we have the file
 			if (!fs.existsSync(process.env.USERSFILE)){
-				debug('"%s" file not found',process.env.USERSFILE);
+				console.error('"%s" file not found',process.env.USERSFILE);
 				process.exit(1);
 				return false
 			}
@@ -141,7 +173,7 @@ export default function(opt) {
 				var data = fs.readFileSync(process.env.USERSFILE);
 				UsersList = JSON.parse(data);
 			} catch (err) {
-				debug('Unable to read/parse the users file');
+				console.error('Unable to read/parse the users file');
 				process.exit(1);
 				return false;
 			}
@@ -268,6 +300,13 @@ export default function(opt) {
 				return;
 			}
 
+			// Set basic auth if requested to do so
+			var authUser = null;var authPass = null;
+			if (ctx.request.headers['x-authuser'] && ctx.request.headers['x-authpass']){
+				authUser = ctx.request.headers['x-authuser'];
+				authPass = ctx.request.headers['x-authpass'];
+			}
+
 			// Getting a new random one or should we use the fixed on
 			let reqId = getUserHostName(ctx);
 			if (reqId == null){
@@ -276,7 +315,7 @@ export default function(opt) {
 			}else{
 				debug('Making new client with id "%s"', reqId);
 			}
-			const info = await manager.newClient(reqId);
+			const info = await manager.newClient(reqId,authUser,authPass);
 
 			const url = schema + '://' + info.id + '.' + ctx.request.host;
 			info.url = url;
@@ -334,9 +373,15 @@ export default function(opt) {
 			}
 		}
 
+		// Set basic auth if requested to do so
+		var authUser = null;var authPass = null;
+		if (ctx.request.headers['x-authuser'] && ctx.request.headers['x-authpass']){
+			authUser = ctx.request.headers['x-authuser'];
+			authPass = ctx.request.headers['x-authpass'];
+		}
 
 		debug('Making new client with id "%s"', reqId);
-		const info = await manager.newClient(reqId);
+		const info = await manager.newClient(reqId,authUser,authPass);
 
 		const url = schema + '://' + info.id + '.' + ctx.request.host;
 		info.url = url;
@@ -379,6 +424,11 @@ export default function(opt) {
 		if (!client) {
 			res.statusCode = 404;
 			res.end('404');
+			return;
+		}
+
+		// Basic auth needed for this client
+		if (!clientAuth(req,res,client)){
 			return;
 		}
 		client.handleRequest(req, res);
