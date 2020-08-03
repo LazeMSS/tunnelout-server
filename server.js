@@ -5,6 +5,7 @@ import Debug from 'debug';
 import http from 'http';
 import { hri } from 'human-readable-ids';
 import Router from 'koa-router';
+import auth from 'koa-basic-auth'
 
 import https from 'https'
 import fs from 'fs'
@@ -32,6 +33,24 @@ export default function(opt) {
 	// Lookup a hostname based on the client id
 	function GetClientIdFromHostname(hostname) {
 		return myTldjs.getSubdomain(hostname);
+	}
+
+	// Wrapper function for basic auth - hack but it works fast
+	function apiBasicAuth(){
+		// Do we have basic auth
+		if (process.env.API_BASICAUTH === undefined || process.env.API_BASICAUTH === "false"){
+			debug("API Basic auth not configured or false");
+			return function(ctx){};
+		}else{
+			// Lookup auth info
+			var authIDs = process.env.API_BASICAUTH.split(":");
+			if (authIDs.length != 2){
+				debug('Bad configuration of API_BASICAUTH: "%s"',process.env.API_BASICAUTH);
+				process.exit(1);
+			}
+			debug("API Basic auth configured");
+			return auth({ name: authIDs[0], pass: authIDs[1] });
+		}
 	}
 
 	// If requested we can have an api key
@@ -69,10 +88,10 @@ export default function(opt) {
 
 			// Did we find the user
 			if (UsersList.hasOwnProperty(usrid) || UsersList.includes(usrid)){
-				debug('User approved - success, Client IP: %s',ctx.request.ip);
+				debug('Client approved - success, Client IP: %s',ctx.request.ip);
 				return true;
 			}
-			debug('User "%s" not found - failure, Client IP: %s',usrid,ctx.request.ip);
+			debug('Client "%s" not found - failure, Client IP: %s',usrid,ctx.request.ip);
 			return false;
 		}
 		return true;
@@ -92,7 +111,7 @@ export default function(opt) {
 				var data = fs.readFileSync(process.env.USERSFILE);
 				UsersList = JSON.parse(data);
 			} catch (err) {
-				debug('User failed - unable to read/parse the users file');
+				debug('Unable to read/parse the users file');
 				process.exit(1);
 				return false;
 			}
@@ -125,12 +144,13 @@ export default function(opt) {
 		};
 	});
 
-	router.get('/api/status', async (ctx, next) => {
+	router.get('/api/status',apiBasicAuth(), async (ctx, next) => {
 		if (!checkAPI(ctx)){
 			debug('/api/status was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
 			return;
 		}
+
 		const stats = manager.stats;
 		ctx.body = {
 			tunnels: stats.tunnels,
@@ -140,7 +160,7 @@ export default function(opt) {
 
 
 	// Reload uses on request
-	router.get('/api/tunnels/:id/status', async (ctx, next) => {
+	router.get('/api/tunnels/:id/status',apiBasicAuth(), async (ctx, next) => {
 		if (checkAPI(ctx)){
 			debug('/api/tunnels/:id/status was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
@@ -159,6 +179,21 @@ export default function(opt) {
 		};
 	});
 
+
+	// Basic auth handler
+	app.use(async (ctx, next) => {
+		try {
+			await next();
+		} catch (err) {
+			if (401 == err.status) {
+				ctx.status = 401;
+				ctx.set('WWW-Authenticate', 'Basic');
+      			ctx.body = 'Not allowed!';
+			} else {
+				throw err;
+			}
+		}
+	});
 
 	app.use(router.routes());
 	app.use(router.allowedMethods());
@@ -185,12 +220,14 @@ export default function(opt) {
 				await next();
 				return;
 			}
+
+			// Getting a new random one or should we use the fixed on
 			let reqId = getUserHostName(ctx);
 			if (reqId == null){
 				reqId = hri.random();
-				debug('making new random client with id "%s"', reqId);
+				debug('Making new random client with id "%s"', reqId);
 			}else{
-				debug('making new client with id "%s"', reqId);
+				debug('Making new client with id "%s"', reqId);
 			}
 			const info = await manager.newClient(reqId);
 
@@ -232,6 +269,7 @@ export default function(opt) {
 		const reqId = parts[1];
 		// limit requested hostnames to 63 characters
 		if (! /^(?:[a-z0-9][a-z0-9\-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqId)) {
+			debug('Invalid subdomain requested, "%s"',reqId);
 			const msg = 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.';
 			ctx.status = 403;
 			ctx.body = {
@@ -240,7 +278,16 @@ export default function(opt) {
 			return;
 		}
 
-		debug('making new client with id "%s"', reqId);
+		// Do we allow the user to override the hostnames from the file
+		if (process.env.ALLOWUSRHOSTOVERRIDE === "false"){
+			let userHN = getUserHostName(ctx);
+			if (userHN !== null && reqId != userHN){
+				debug('Client requested "%s" - but we dont allow override, so serving "%s"', reqId,userHN);
+			}
+		}
+
+
+		debug('Making new client with id "%s"', reqId);
 		const info = await manager.newClient(reqId);
 
 		const url = schema + '://' + info.id + '.' + ctx.request.host;
