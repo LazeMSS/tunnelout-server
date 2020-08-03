@@ -240,7 +240,7 @@ export default function(opt) {
 			return;
 		}
 		// Api header key
-		if (apiKeyCheck(ctx)){
+		if (!apiKeyCheck(ctx)){
 			debug('/api/tunnels/:id/status was blocked for %s',ctx.request.ip);
 			ctx.throw(403, 'Forbidden');
 			return;
