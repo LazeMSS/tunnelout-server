@@ -77,8 +77,10 @@ If this is set then the REST APIs are "secured" by always demanding this keys is
 
 #### USERSFILE=users.json
 **WIP: This requires a special version of the lt client**
-If this parameter is set then this file is used for checking if the user is allowed to connect. The fileformat is really simple at the moment it's just a simple json file and the key is looked up. Look into [users.json](./users.json) for an example file
+If this parameter is set then this file is used for checking if the user is allowed to connect. The fileformat is really simple at the moment it's just a simple json file and the key is looked up. Look into [users.json](./users.json) for an example file. The format of the users.json file can be in either an object with a key and value pair of userkey:hostname or just an array of userkeys.
 
+#### ALLOWUSRHOSTOVERRIDE=false
+If this flags is set to true it tells the server that the client is allowed to overwrite any hostname stored in the [users.json](./users.json) file
 
 ## REST API
 
