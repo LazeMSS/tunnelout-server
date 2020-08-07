@@ -75,6 +75,9 @@ Where are the certificates for your domain stored - change them to the real path
 #### API_KEY=SECRETAPIKEYHERE
 If this is set then the REST APIs are "secured" by always demanding this keys is sent in the header as "x-api-key: SECRETAPIKEYHERE". This way the public API is a bit shielded from prying eyes.
 
+#### ADMIN_AUTH=user:pass
+Set the admin user and password for using the api/dashboard - if set to false its disabled
+
 #### USERSFILE=users.json
 **WIP: This requires a special version of the lt client**
 If this parameter is set then this file is used for checking if the user is allowed to connect. The fileformat is really simple at the moment it's just a simple json file and the key is looked up. Look into [users.json](./users.json) for an example file. The format of the users.json file can be in either an object with a key and value pair of userkey:hostname or just an array of userkeys.
@@ -97,6 +100,10 @@ Se the [API_KEY=SECRETAPIKEYHERE](#api_keysecretapikeyhere) on how to configure 
 ```shell
 curl -i -H "x-api-key: SECRETAPIKEYHERE" https://example.tld/api/status
 ```
+
+## Dashboard - WIP
+The dashboard is a small website deployed on the main host on your site plus /dashboard/, ie. https://example.tld/dashboard/
+It can also be used per client be visiting: https://example.tld/dashboard/c/CLIENTNAME
 
 ## Deploy
 
