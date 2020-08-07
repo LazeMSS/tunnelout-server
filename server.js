@@ -12,6 +12,8 @@ import fs from 'fs'
 import ClientManager from './lib/ClientManager';
 
 const debug = Debug('localtunnel:server');
+const path = require('path');
+const os = require('os');
 
 export default function(opt) {
 	opt = opt || {};
@@ -48,33 +50,33 @@ export default function(opt) {
 	}
 
 	// Wrapper function for basic auth - hack but it works fast
-	function apiBasicAuth(ctx){
+	// requiresauth = if false then we will fail login even if there is no login options setup
+	// promptlogin = should we automatically create a login prompt
+	function adminAuth(ctx,requiresauth = false,promptlogin  = true){
 		// Do we have basic auth
-		if (process.env.API_BASICAUTH === undefined || process.env.API_BASICAUTH === "false"){
+		if (process.env.ADMIN_AUTH === undefined || process.env.ADMIN_AUTH === "false"){
+			// Do we need auth
+			if (requiresauth){
+				return false;
+			}
 			return true;
 		}else{
 			// Lookup auth info
-			var authIDs = process.env.API_BASICAUTH.split(":");
+			var authIDs = process.env.ADMIN_AUTH.split(":");
 			if (authIDs.length != 2){
-				console.error('Bad configuration of API_BASICAUTH: "%s"',process.env.API_BASICAUTH);
+				console.error('Bad configuration of API_BASICAUTH: "%s"',process.env.ADMIN_AUTH);
 				process.exit(1);
 				return false;
 			}
 			// Taken from: https://gist.github.com/charlesdaniel/1686663
 			var auth = ctx.request.headers['authorization'];
-			if(!auth) {
-				debug("Auth needed");
-				ctx.throw(401, 'Unauthorized ');
-				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
-				ctb.body = 'Auth needed';
-				return false;
-			}
-
-			if (!authThis(auth,authIDs[0],authIDs[1])){
+			if(!auth || !authThis(auth,authIDs[0],authIDs[1])) {
 				debug("Auth failed");
-				ctx.throw(401, 'Unauthorized ');
-				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
-				ctb.body = 'Auth failed';
+				if (promptlogin){
+					ctx.throw(401, 'Unauthorized ');
+					ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
+					ctb.body = 'Auth missing';
+				}
 				return false;
 			}
 			debug("Auth approved");
@@ -82,13 +84,13 @@ export default function(opt) {
 		}
 	}
 
-	// If requested we can have an api key
+	// API header key login check
 	function apiKeyCheck(ctx) {
 		// Check if the key is present
-		if (process.env.API_KEY !== undefined && process.env.API_KEY != "" && process.env.API_KEY != "false" && ctx.request.headers['x-api-key'] != process.env.API_KEY){
-			return false;
+		if (process.env.API_KEY !== undefined && process.env.API_KEY != "" && process.env.API_KEY != "false" && ctx.request.headers['x-api-key'] == process.env.API_KEY){
+			return true
 		}
-		return true;
+		return false;
 	}
 
 	// Auth a client
@@ -100,20 +102,12 @@ export default function(opt) {
 			return true;
 		}
 		var auth = req.headers['authorization'];  // auth is in base64(username:password)  so we need to decode the base64
-		if(!auth) {     // No Authorization header was passed in so it's the first time the browser hit us
-			debug("Client auth missing");
+		if(!auth || !authThis(auth,cUsr,cPass)) {     // No Authorization header was passed in so it's the first time the browser hit us
+			debug("Client auth failed");
 			res.statusCode = 401;
 			res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
 			res.end('Auth needed');
 			return;
-		}
-		// Did we pass?
-		if (!authThis(auth,cUsr,cPass)){
-			debug("Client auth failed");
-			res.statusCode = 401;
-			res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
-			res.end('Failed');
-			return false;
 		}
 		return true;
 	}
@@ -131,7 +125,7 @@ export default function(opt) {
 	}
 
 	// Check if a user allowed to request a tunnel
-	function checkUserLogin(ctx){
+	function checkUserLogin(ctx,required = false){
 		if (process.env.USERSFILE  !== undefined){
 			// Do we have the user header
 			if (ctx.request.headers['x-user-key'] === undefined){
@@ -152,6 +146,10 @@ export default function(opt) {
 				return true;
 			}
 			debug('Client "%s" not found - failure, Client IP: %s',usrid,ctx.request.ip);
+			return false;
+		}
+		// if we MUST login then this will fail
+		if (required){
 			return false;
 		}
 		return true;
@@ -182,23 +180,117 @@ export default function(opt) {
 	}
 
 
-	// ROUTES FOR APIs
-	router.get('/api/reloadUsers', async (ctx, next) => {
-		// Basic auth check
-		if (!apiBasicAuth(ctx)){
-			return;
+	// ROUTES FOR dashboard - a small webserver wrapper
+	router.get('/dashboard/*', async (ctx, next) => {
+		var reqLink = 'index.html';
+		var clientdash = false;
+		var folder = __dirname+'/dashboard/';
+
+		// Requesting anything but main folder
+		if (ctx.params[0] != ""){
+			var reqpath = ctx.params[0].split("/");
+			// Did we request a client link: /dasboard/c/*" - then we are handling a client/User login
+			if (reqpath.length >= 2 && reqpath[0] == "c") {
+				// Client request
+				clientdash = true;
+				// What file do we really want?
+				if (reqpath[2] !== undefined){
+					// Set file request to the requested if its not blank
+					if (reqpath[2] != ""){
+						reqLink = reqpath[2];
+					}
+				}else{
+					//Redirect to clean the "input"
+					ctx.status = 301;
+					ctx.redirect(ctx.request.path+"/");
+					return
+				}
+			}else{
+				// Admin request
+				reqLink = path.basename(ctx.params[0]);
+			}
+
+			// Are we serving a client? then try and find the client
+			if (clientdash){
+				const client = manager.getClient(reqpath[1]);
+				// Failed to find the client!
+				if (!client) {
+					ctx.throw(404);
+					return;
+				}else{
+					var cUsr = client.getAuthUsr();
+					var cPass = client.getAuthPass();
+					// Nothing to validate against then we fail - we must have something to help make it secure
+					if (cUsr == null || cPass == null){
+						ctx.throw(409);
+						return;
+					}
+				}
+				// Do we have auth headers
+				var auth = ctx.request.headers['authorization'];
+				if(!auth || !authThis(auth,cUsr,cPass)) {
+					clientdash = false;
+				}
+			}
 		}
-		// Api header key
-		if (!apiKeyCheck(ctx)){
-			debug('/api/reloadUsers was blocked for %s',ctx.request.ip);
-			ctx.throw(403, 'Forbidden');
+
+		// If not client dash or not logged in as client then we request a login
+		if (!clientdash){
+			// Check admin login - we need a login and we will prompt for it
+			if (!adminAuth(ctx,true,true)){
+				ctx.throw(401, 'Unauthorized ');
+				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
+				ctb.body = 'Auth needed';
+				return;
+			}
+		}
+
+		// Do we have the file requested?
+		if (!fs.existsSync(folder+reqLink)){
+			debug(folder+reqLink + ' not found');
+			ctx.throw(404);
 			return;
 		}
 
+		// Mime hack
+		const mimeTypes = {
+			'gif'  : 'image/gif',
+			'jpeg' : 'image/jpeg',
+			'jpg'  : 'image/jpeg',
+			'jpe'  : 'image/jpeg',
+			'png'  : 'image/png',
+			'css'  : 'text/css',
+			'js'   : 'text/javascript',
+			'json' : 'application/json',
+		};
+		var fileExt = reqLink.split('.').pop().toLowerCase();
+		var mimetype = "text/html";
+		if (mimeTypes.hasOwnProperty(fileExt)){
+			mimetype = mimeTypes[fileExt];
+		}
+		ctx.set('content-type',mimetype);
+		ctx.body = fs.readFileSync(folder+path.basename(reqLink));
+	})
+
+	// ------------------------------------- ROUTES FOR APIs ------------------------------------------
+
+	// Reload the users file
+	router.get('/api/reloadUsers', async (ctx, next) => {
 		// Do we have a users file?
 		if (process.env.USERSFILE  === undefined){
 			return true;
 		}
+
+		// Api header key is the first one - if that fails we can use the basic auth stuff
+		if (!apiKeyCheck(ctx)){
+			// Basic auth check, we MUST have security and prompt for login
+			if (!adminAuth(ctx,true,true)){
+				debug('/api/reloadUsers was blocked for %s',ctx.request.ip);
+				ctx.throw(403, 'Forbidden');
+				return;
+			}
+		}
+
 		var prevUsers = Object.keys(UsersList).length;
 
 		// Load the users list
@@ -210,47 +302,97 @@ export default function(opt) {
 		};
 	});
 
+	// Main status api
 	router.get('/api/status', async (ctx, next) => {
-
-		// Basic auth check
-		if (!apiBasicAuth(ctx)){
-			return;
-		}
-
-		// Api header key
+		// Api header key is the first one - if that fails we can use the basic auth stuff
 		if (!apiKeyCheck(ctx)){
-			debug('/api/status was blocked for %s',ctx.request.ip);
-			ctx.throw(403, 'Forbidden');
-			return;
+			// Basic auth check - we need this and we will prompt if present
+			if (!adminAuth(ctx,true,true)){
+				debug('/api/status blocked for %s',ctx.request.ip);
+				ctx.throw(403, 'Forbidden');
+				return;
+			}
 		}
 
+		// Get the stats objects and build the output
 		const stats = manager.stats;
+		const clients = manager.clients;
+		var returnClients = Object.keys(clients);
+		var loadavgres = [];
+		os.loadavg().forEach(function(currentValue , index){
+			loadavgres.push(currentValue.toFixed(2));
+		});
+
+		// TODO: return the manager.clients if behind security
 		ctx.body = {
-			tunnels: stats.tunnels,
-			mem: process.memoryUsage(),
+			clients: returnClients,
+			enviroment:{
+				mem: process.memoryUsage(),
+				cpu_usage: process.cpuUsage(),
+				uptime: Math.floor(process.uptime()),
+				exec : process.execPath,
+				pid: process.pid,
+			},
+			os:{
+				cpus: os.cpus().length,
+				free_mem : Math.floor((os.freemem()/1024)/1024)+ " MB",
+				total_mem: Math.floor((os.totalmem()/1024)/1024)+ " MB",
+				uptime: os.uptime(),
+				hostname : os.hostname(),
+				load_avg: loadavgres,
+				platform: os.platform(),
+				version: os.release(),
+			}
 		};
 	});
 
-
-	// Reload uses on request
+	// Get a tunnels status
 	router.get('/api/tunnels/:id/status', async (ctx, next) => {
-		// Basic auth check
-		if (!apiBasicAuth(ctx)){
-			return;
-		}
-		// Api header key
-		if (!apiKeyCheck(ctx)){
-			debug('/api/tunnels/:id/status was blocked for %s',ctx.request.ip);
-			ctx.throw(403, 'Forbidden');
-			return;
-		}
+		// Lookup the client info
 		const clientId = ctx.params.id;
 		const client = manager.getClient(clientId);
+		// Client not found
 		if (!client) {
 			ctx.throw(404);
 			return;
 		}
 
+		var loginOk = false;
+		// Api header key if the first check
+		if (apiKeyCheck(ctx)){
+			loginOk = true;
+		}
+
+		// Lets try login using the main api auth if the apiKeyCheck failed, we need it, but wont prompt for it - normally the api is used by the dashboard
+		if (!loginOk && adminAuth(ctx,true,false)){
+			loginOk = true;
+		}
+
+		// Try using the user login header if everything else fails - again we need this so not having it will fail
+		if (!loginOk && checkUserLogin(ctx,true)){
+			loginOk = true
+		}
+
+		// User login needed if none of two main auths did not work
+		if (!loginOk){
+			var auth = ctx.request.headers['authorization'];
+			var cUsr = client.getAuthUsr();
+			var cPass = client.getAuthPass();
+			// Nothing to validate against then we fail this
+			if (cUsr == null || cPass == null){
+				ctx.throw(409);
+				return;
+			}
+			// Lets test and prompt for auth
+			if(!auth || !authThis(auth,cUsr,cPass)) {
+				debug("Client auth failed for client api");
+				ctx.throw(401, 'Unauthorized ');
+				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
+				ctb.body = 'Auth needed';
+				return;
+			}
+		}
+		// Let send the data - todo send params it running with: local port etc.
 		ctx.body = client.stats();
 	});
 
@@ -275,14 +417,14 @@ export default function(opt) {
 
 	// root endpoint for new/random clients
 	app.use(async (ctx, next) => {
-		const path = ctx.request.path;
+		const reqpath = ctx.request.path;
 		// Skip if forbidden
 		if (ctx.status == 403){
 			await next();
 			return;
 		}
 		// skip anything not on the root path
-		if (path !== '/') {
+		if (reqpath !== '/') {
 			await next();
 			return;
 		}
@@ -290,7 +432,8 @@ export default function(opt) {
 		// Did we request a new endpoint
 		const isNewClientRequest = ctx.query['new'] !== undefined;
 		if (isNewClientRequest) {
-			if (!checkUserLogin(ctx)){
+			// Check against users table - we allow it to be blank
+			if (!checkUserLogin(ctx,false)){
 				ctx.throw(403, 'Forbidden');
 				await next();
 				return;
@@ -336,13 +479,13 @@ export default function(opt) {
 		// any request with several layers of paths is not allowed
 		// rejects /foo/bar
 		// allow /foo
-		if (parts.length !== 2) {
+		if (parts.length !== 2 || parts[1] == "favicon.ico") {
 			await next();
 			return;
 		}
 
 		// Check if user login is needed and if so ok
-		if (!checkUserLogin(ctx)){
+		if (!checkUserLogin(ctx,false)){
 			ctx.throw(403, 'Forbidden');
 			await next();
 			return;
@@ -386,6 +529,7 @@ export default function(opt) {
 		return;
 	});
 
+	// Start the server
 	let server;
 	if (opt.secure && fs.existsSync(process.env.SSL_KEY) && fs.existsSync(process.env.SSL_CERT)) {
 		debug('Running secure server, https using %s , %s',process.env.SSL_KEY,process.env.SSL_CERT);
@@ -398,6 +542,7 @@ export default function(opt) {
 		debug('Running insecure server, http');
 	}
 
+	// Load any users if present
 	loadUsers();
 
 	const appCallback = app.callback();
