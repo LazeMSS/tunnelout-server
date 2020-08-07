@@ -33,7 +33,8 @@ export default function(opt) {
 
 	// Lookup a hostname based on the client id
 	function GetClientIdFromHostname(hostname) {
-		return myTldjs.getSubdomain(hostname);
+		const hostsplit = hostname.split(':');
+        return myTldjs.getSubdomain(hostsplit[0]);
 	}
 
 	function authThis(authval,user,pass){
@@ -323,7 +324,6 @@ export default function(opt) {
 			loadavgres.push(currentValue.toFixed(2));
 		});
 
-		// TODO: return the manager.clients if behind security
 		ctx.body = {
 			clients: returnClients,
 			enviroment:{
@@ -393,7 +393,11 @@ export default function(opt) {
 			}
 		}
 		// Let send the data - todo send params it running with: local port etc.
-		ctx.body = client.stats();
+		ctx.body = {
+			stats : client.stats(),
+			id : client.id,
+			auth : (client.authpass !== null && client.authusr !== null),
+		}
 	});
 
 

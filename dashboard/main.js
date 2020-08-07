@@ -55,11 +55,11 @@
 
 	// CLick first item
 	var lastPath = document.location.pathname.split("/").slice(-2,-1);
-	if (lastPath == "dashboard"){
-		document.getElementById("menulist").getElementsByClassName('pure-menu-link')[0].click();
-	}else{
+	if (lastPath != "dashboard"){
+		document.getElementById("menulist").removeChild(document.getElementById("menulist").getElementsByClassName('pure-menu-item')[0]);
 		buildHostsMenu([lastPath]);
 	}
+	document.getElementById("menulist").getElementsByClassName('pure-menu-link')[0].click();
 
 }(this, this.document));
 
@@ -121,6 +121,10 @@ function buildHostsMenu(hosts){
 		element.parentNode.removeChild(element)
 	);
 	var menulist = document.getElementById('menulist');
+	if (!hosts.length){
+		menulist.insertAdjacentHTML('beforeend', '<li class="pure-menu-item host-name-link">&nbsp;&nbsp;<em>None</em></li>');
+		return;
+	}
 	hosts.forEach(function(currentValue , index){
 		menulist.insertAdjacentHTML('beforeend', '<li class="pure-menu-item host-name-link"><a href="#" class="pure-menu-link" data-ajaxsrc="/api/tunnels/'+currentValue+'/status" data-header="'+currentValue+'" data-subheader="Tunnel status">'+currentValue+'</a></li>');
 	});
