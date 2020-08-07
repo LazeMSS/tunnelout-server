@@ -1,5 +1,10 @@
 # localtunnel-server
-**NOTE** This is my WIP on an improved version of tunnel-server based on: https://github.com/cloudatlasid/tunnel-server/
+**NOTE** This is my WIP on an improved version of tunnel-server based on: https://github.com/cloudatlasid/tunnel-server/ 
+This version includes the following improvements:
+- Support for basic auth on the tunnel/client site
+- Dashboard view for admins and users
+- Basic auth and header auth for apis
+- A users.json file making it possible to control who is allowed to connect to the server
 
 localtunnel exposes your localhost to the world for easy testing and sharing! No need to mess with DNS or deploy just to have others test out your changes.
 
