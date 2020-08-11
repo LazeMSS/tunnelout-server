@@ -116,7 +116,7 @@ export default function(opt) {
 
 	// Get a users hostname from the users file
 	function getUserHostName(ctx){
-		if (process.env.USERSFILE !== undefined && ctx.request.headers['x-user-key'] !== undefined){
+		if (process.env.USERSFILE !== undefined && process.env.USERSFILE != "" && ctx.request.headers['x-user-key'] !== undefined){
 			const usrid = ctx.request.headers['x-user-key'];
 			if (UsersList.hasOwnProperty(usrid)){
 				return UsersList[usrid];
@@ -127,7 +127,7 @@ export default function(opt) {
 
 	// Check if a user allowed to request a tunnel
 	function checkUserLogin(ctx,required = false){
-		if (process.env.USERSFILE  !== undefined){
+		if (process.env.USERSFILE  !== undefined  && process.env.USERSFILE != ""){
 			// Do we have the user header
 			if (ctx.request.headers['x-user-key'] === undefined){
 				debug('x-user-key header is missing!');
@@ -159,7 +159,7 @@ export default function(opt) {
 	// Reload users from the users.json file
 	function loadUsers(){
 		// Get users
-		if (process.env.USERSFILE  !== undefined){
+		if (process.env.USERSFILE  !== undefined && process.env.USERSFILE != ""){
 			// Do we have the file
 			if (!fs.existsSync(process.env.USERSFILE)){
 				console.error('"%s" file not found',process.env.USERSFILE);
@@ -278,7 +278,7 @@ export default function(opt) {
 	// Reload the users file
 	router.get('/api/reloadUsers', async (ctx, next) => {
 		// Do we have a users file?
-		if (process.env.USERSFILE  === undefined){
+		if (process.env.USERSFILE  === undefined || process.env.USERSFILE ==""){
 			return true;
 		}
 
@@ -392,7 +392,7 @@ export default function(opt) {
 				return;
 			}
 		}
-		// Let send the data - todo send params it running with: local port etc.
+		// Let send the data - todo send params it running with: local port etc. - everything we know - tunnel numbers etc
 		ctx.body = {
 			stats : client.stats(),
 			id : client.id,
@@ -536,7 +536,7 @@ export default function(opt) {
 	// Start the server
 	let server;
 	if (opt.secure && fs.existsSync(process.env.SSL_KEY) && fs.existsSync(process.env.SSL_CERT)) {
-		debug('Running secure server, https using %s , %s',process.env.SSL_KEY,process.env.SSL_CERT);
+		debug('Running secure server, https, using %s , %s',process.env.SSL_KEY,process.env.SSL_CERT);
 		server = https.createServer({
 			key: fs.readFileSync(process.env.SSL_KEY, 'ascii'),
 			cert: fs.readFileSync(process.env.SSL_CERT, 'ascii')

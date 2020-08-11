@@ -290,3 +290,14 @@ Hides the menu at `48em`, but modify this based on your app's needs.
 		left: 150px;
 	}
 }
+
+.noWrap{
+	white-space: nowrap;
+}
+
+.help {cursor: help;}
+
+tr.active td{
+	background-color: #1f8dd6 !important;
+	color: #fff;
+}
