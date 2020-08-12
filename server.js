@@ -535,7 +535,12 @@ export default function(opt) {
 
 	// Start the server
 	let server;
-	if (opt.secure && fs.existsSync(process.env.SSL_KEY) && fs.existsSync(process.env.SSL_CERT)) {
+	if (opt.secure) {
+		// Do we have the file to run a secure setup?
+		if (!fs.existsSync(process.env.SSL_KEY) || !fs.existsSync(process.env.SSL_CERT)) {
+			console.log('Bad or missing cert files');
+			process.exit(1);
+		}
 		debug('Running secure server, https, using %s , %s',process.env.SSL_KEY,process.env.SSL_CERT);
 		server = https.createServer({
 			key: fs.readFileSync(process.env.SSL_KEY, 'ascii'),
