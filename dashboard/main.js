@@ -162,7 +162,7 @@ function buildHostsMenu(hosts){
 var dataLookup = {};
 function buildClientData(data){
 	var strReturn = '<div class="databox"><h3>Info</h3><div><h4>Auth enabled</h4><span>'+data.auth+'</span></div><div><h4>Connected sockets</h4><span>'+data.stats.connectedSockets+'</span></div></div>';
-	var reqTable = '<table id="reqtbl" class="noWrap pure-table pure-table-striped pure-table-horizontal"><thead><tr><th>Url</th><th>Status</th><th>Method</th><th>Req. IP</th><th>Time</th></tr></thead><tbody>';
+	var reqTable = '<div class="databox"><h3>Requests</h3><div><table id="reqtbl" class="noWrap pure-table pure-table-striped pure-table-horizontal"><thead><tr><th>Url</th><th>Status</th><th>Method</th><th>Req. IP</th><th>Time</th></tr></thead><tbody>';
 	// Make overview overview
 	dataLookup = data.stats.last10request;
 	data.stats.last10request.forEach(function(reqv , index){
@@ -170,6 +170,6 @@ function buildClientData(data){
 
 	});
 
-	reqTable += "</table>";
+	reqTable += "</table></div></div>";
 	return strReturn+reqTable;
 }
