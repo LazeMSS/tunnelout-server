@@ -27,6 +27,8 @@ export default function(opt) {
 
 	const schema = opt.secure ? 'https' : 'http';
 
+	const dashboardfolder = '/dashboard/';
+
 	const app = new Koa();
 	const router = new Router();
 	let UsersList = {};
@@ -182,10 +184,10 @@ export default function(opt) {
 
 
 	// ROUTES FOR dashboard - a small webserver wrapper
-	router.get('/dashboard/*', async (ctx, next) => {
+	router.get(dashboardfolder+'*', async (ctx, next) => {
 		var reqLink = 'index.html';
 		var clientdash = false;
-		var folder = __dirname+'/dashboard/';
+		var folder = __dirname+dashboardfolder;
 
 		// Requesting anything but main folder
 		if (ctx.params[0] != ""){
@@ -229,8 +231,12 @@ export default function(opt) {
 				}
 				// Do we have auth headers
 				var auth = ctx.request.headers['authorization'];
-				if(!auth || !authThis(auth,cUsr,cPass)) {
-					clientdash = false;
+				clientdash = false;
+				if(auth){
+					if (authThis(auth,cUsr,cPass)) {
+						clientdash = true;
+						ctx.cookies.set('authType', 'user',{expires : 0, httpOnly: false});
+					}
 				}
 			}
 		}
@@ -244,6 +250,7 @@ export default function(opt) {
 				ctb.body = 'Auth needed';
 				return;
 			}
+			ctx.cookies.set('authType', 'admin',{expires : 0, httpOnly: false});
 		}
 
 		// Do we have the file requested?
@@ -342,6 +349,12 @@ export default function(opt) {
 				load_avg: loadavgres,
 				platform: os.platform(),
 				version: os.release(),
+			},
+			configuration: {
+				valid_hosts : validHosts,
+				landing_page: landingPage,
+				schema: schema,
+				arguments: process.argv.slice(2)
 			}
 		};
 	});
@@ -392,7 +405,7 @@ export default function(opt) {
 				return;
 			}
 		}
-		// Let send the data - todo send params it running with: local port etc. - everything we know - tunnel numbers etc
+		// Let send the data
 		ctx.body = {
 			stats : client.stats(),
 			id : client.id,
@@ -445,9 +458,11 @@ export default function(opt) {
 
 			// Set basic auth if requested to do so
 			var authUser = null;var authPass = null;
+			var authSet = false;
 			if (ctx.request.headers['x-authuser'] && ctx.request.headers['x-authpass']){
 				authUser = ctx.request.headers['x-authuser'];
 				authPass = ctx.request.headers['x-authpass'];
+				authSet = true;
 			}
 
 			// Getting a new random one or should we use the fixed on
@@ -462,6 +477,11 @@ export default function(opt) {
 
 			const url = schema + '://' + info.id + '.' + ctx.request.host;
 			info.url = url;
+			if (authSet){
+				info.dashboard = schema + '://' +ctx.request.host+dashboardfolder+'c/'+info.id+'/';
+			}else{
+				info.dashboard = false;
+			}
 			ctx.body = info;
 			return;
 		}

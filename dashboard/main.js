@@ -1,9 +1,9 @@
-var preload = '';
 (function (window, document) {
 
 	var layout   = document.getElementById('layout'),
 		menu     = document.getElementById('menu'),
-		menuLink = document.getElementById('menuLink');
+		menuLink = document.getElementById('menuLink'),
+		menuList = document.getElementById("menulist");
 
 	function toggleClass(element, className) {
 		var classes = element.className.split(/\s+/),
@@ -34,14 +34,20 @@ var preload = '';
 	}
 
 	function handleEvent(e) {
-		if (e.target.dataset.ajaxget != undefined){
-			history.pushState(e.target.dataset.ajaxget,'server status','#server');
-			ajaxGet(e.target.dataset.ajaxget,scan);
+		
+		// Load server status
+		if (e.target.dataset.serverstatus != undefined){
+			history.pushState('server','server status','#server');
+			ajaxGet('/api/status',serverStatus);
 		}
-		if (e.target.dataset.ajaxclient != undefined){
-			history.pushState(e.target.dataset.ajaxclient,'client:'+e.target.dataset.header,'#'+e.target.dataset.header);
-			ajaxGet(e.target.dataset.ajaxclient,buildClientData);
+		
+		// Lookup a client
+		if (e.target.dataset.clientlookup != undefined){
+			history.pushState(e.target.dataset.clientlookup,'client:'+e.target.dataset.header,'#'+e.target.dataset.header);
+			ajaxGet('/api/tunnels/'+e.target.dataset.clientlookup+'/status',buildClientData);
 		}
+		
+		// Lookup requests
 		if (e.target.parentElement.dataset.reqlookup != undefined){
 			var headbox = document.getElementById("headersdisplay");
 			if (headbox != undefined){
@@ -51,14 +57,18 @@ var preload = '';
 				element.classList.remove('active')
 			);
 			e.target.parentElement.classList.add("active");
-			document.getElementById('maincontent').insertAdjacentHTML('beforeend','<div id="headersdisplay" class="databox"><h3>Headers: '+dataLookup[e.target.parentElement.dataset.reqlookup].url+'</h3><div>'+scan(dataLookup[e.target.parentElement.dataset.reqlookup].headers,1)+'</div></div>');
+			document.getElementById('maincontent').insertAdjacentHTML('beforeend','<div id="headersdisplay" class="databox"><h3>Headers: '+dataLookup[e.target.parentElement.dataset.reqlookup].url+'</h3><div>'+recursiveBox(dataLookup[e.target.parentElement.dataset.reqlookup].headers,1)+'</div></div>');
 		}
+
+		// Set headers
 		if (e.target.dataset.header != undefined){
 			document.getElementById('mainHeader').innerHTML = e.target.dataset.header;
 		}
 		if (e.target.dataset.subheader != undefined){
 			document.getElementById('subHeader').innerHTML = e.target.dataset.subheader;
 		}
+
+		// Toggle menu
 		if (e.target.id === menuLink.id) {
 			return toggleAll(e);
 		}
@@ -70,27 +80,37 @@ var preload = '';
 		return false;
 	}
 
+	// Generic handler for clicking items
 	document.addEventListener('click', handleEvent);
 
-	// CLick first item
+	// What type of request
 	var lastPath = document.location.pathname.split("/").slice(-2,-1);
-	// main or user dash
-	if (lastPath != "dashboard"){
-		document.getElementById("menulist").removeChild(document.getElementById("menulist").getElementsByClassName('pure-menu-item')[0]);
-		buildHostsMenu([lastPath]);
+	var cookie = getCookie('authType');
+
+	// Security is handle by backend - this is just for easy display
+	if (cookie == "user" || lastPath != "dashboard"){
+		// Build the one requested :)
+		buildClientsMenu([lastPath]);
+	}else{
+		var adminMenu = '<li class="pure-menu-item"><a href="#" data-serverstatus=1 data-header="Server" data-subheader="status" class="pure-menu-link">Server status</a></li>';
+		adminMenu += '<li class="pure-menu-heading">Clients</li>';
+		menulist.insertAdjacentHTML('beforeend',adminMenu);
+
 	}
-	preload = location.hash.split('#')[1];
+
+	// Click first item
 	document.getElementById("menulist").getElementsByClassName('pure-menu-link')[0].click();
 
 }(this, this.document));
 
+// Quick ajax wrapper
 function ajaxGet(loadThis,handler){
 	var xhr = new XMLHttpRequest();
 	xhr.open('GET', loadThis);
 	xhr.onload = function() {
 		if (xhr.status === 200) {
 			var json = JSON.parse(xhr.responseText);
-			document.getElementById('maincontent').innerHTML = handler(json);
+			handler(json);
 		}else {
 			alert('Request failed.  Returned status of ' + xhr.status);
 		}
@@ -98,8 +118,17 @@ function ajaxGet(loadThis,handler){
 	xhr.send();
 }
 
-// Hackish
-function scan(obj,level = 0) {
+// Build server status content
+function serverStatus(obj){
+	buildClientsMenu(obj.clients);
+	var clientLen = obj.clients.length;
+	delete obj.clients;
+	var htmlStr = recursiveBox({'#_clients':clientLen})+recursiveBox(obj);
+	document.getElementById('maincontent').innerHTML = htmlStr;
+}
+
+// Hackish recursive display
+function recursiveBox(obj,level = 0) {
     var k;
     var strReturn = '';
     if (obj instanceof Object) {
@@ -112,13 +141,10 @@ function scan(obj,level = 0) {
        		}else if (!Array.isArray(obj)){
        			strReturn += "<h"+(level+3)+">"+kheader+'</h'+(level+3)+'>';
        		}
-       		if (k == "clients"){
-       			buildHostsMenu(obj[k]);
-       		}
        		// find children
             if (obj.hasOwnProperty(k) && obj[k].length !== 0){
-                //recursive call to scan property
-                strReturn += scan(obj[k],level+1);
+                //recursive call to recursiveBox property
+                strReturn += recursiveBox(obj[k],level+1);
             }else{
             	strReturn += "<em>blank</em>";
             }
@@ -128,35 +154,28 @@ function scan(obj,level = 0) {
        		}
         }
     } else {
-    	/* if (!isNaN(obj)){
-    		obj = obj.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    	}*/
+
        	strReturn += '<span>'+obj+'</span>';
     };
     return strReturn;
 };
 
 
-function buildHostsMenu(hosts){
+function buildClientsMenu(clients){
+	// Delete all previous
 	document.querySelectorAll(".host-name-link").forEach(element =>
 		element.parentNode.removeChild(element)
 	);
+	// No clients
 	var menulist = document.getElementById('menulist');
-	if (!hosts.length){
+	if (!clients.length){
 		menulist.insertAdjacentHTML('beforeend', '<li class="pure-menu-item host-name-link">&nbsp;&nbsp;<em>None</em></li>');
 		return;
 	}
-	hosts.forEach(function(currentValue , index){
-		var preloadC = '';
-		if (preload === currentValue){
-			preloadC = "preloadMe";
-		}
-		menulist.insertAdjacentHTML('beforeend', '<li class="pure-menu-item host-name-link"><a href="#" class="pure-menu-link '+preloadC+'" data-ajaxclient="/api/tunnels/'+currentValue+'/status" data-header="'+currentValue+'" data-subheader="Tunnel status">'+currentValue+'</a></li>');
+
+	clients.forEach(function(currentValue , index){
+		menulist.insertAdjacentHTML('beforeend', '<li class="pure-menu-item host-name-link"><a href="#" class="pure-menu-link" data-clientlookup="'+currentValue+'" data-header="'+currentValue+'" data-subheader="Client status">'+currentValue+'</a></li>');
 	});
-	if (preload !== undefined && document.getElementById("menulist").getElementsByClassName('preloadMe').length){
-		document.getElementById("menulist").getElementsByClassName('preloadMe')[0].click();
-		preload = null;
-	}
 }
 
 var dataLookup = {};
@@ -171,5 +190,21 @@ function buildClientData(data){
 	});
 
 	reqTable += "</table></div></div>";
-	return strReturn+reqTable;
+	document.getElementById('maincontent').innerHTML = strReturn+reqTable;
+}
+
+function getCookie(cname) {
+  var name = cname + "=";
+  var decodedCookie = decodeURIComponent(document.cookie);
+  var ca = decodedCookie.split(';');
+  for(var i = 0; i <ca.length; i++) {
+    var c = ca[i];
+    while (c.charAt(0) == ' ') {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) == 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
 }
