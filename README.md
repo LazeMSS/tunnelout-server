@@ -100,6 +100,19 @@ Create a new tunnel. A LocalTunnel client posts to this enpoint to request a new
 
 General server information.
 
+### GET /api/reloadUsers
+
+Reload all users from the USERSFILE file
+
+### POST /api/user/USERNAME
+
+Add/Update a user to the USERSFILE file
+
+### DELETE /api/user/USERNAME
+
+Delete a user from USERSFILE file
+
+
 ### API security
 Se the [API_KEY=SECRETAPIKEYHERE](#api_keysecretapikeyhere) on how to configure this. Heres an example on how to request the API when the secret is enabled:
 ```shell
