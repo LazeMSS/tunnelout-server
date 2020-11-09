@@ -617,16 +617,24 @@ export default function(opt) {
 
 		// Set basic auth if requested to do so
 		var authUser = null;var authPass = null;
+		var authSet = false;
 		if (ctx.request.headers['x-authuser'] && ctx.request.headers['x-authpass']){
 			authUser = ctx.request.headers['x-authuser'];
 			authPass = ctx.request.headers['x-authpass'];
+			authSet = true;
 		}
 
 		debug('Making new client with id "%s"', reqId);
 		const info = await manager.newClient(reqId,authUser,authPass);
-
 		const url = schema + '://' + info.id + '.' + ctx.request.host;
 		info.url = url;
+
+		if (authSet){
+			info.dashboard = schema + '://' +ctx.request.host+dashboardfolder+'c/'+info.id+'/';
+                }else{
+			info.dashboard = false;
+		}
+
 		ctx.body = info;
 		return;
 	});
