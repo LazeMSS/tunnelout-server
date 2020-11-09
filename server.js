@@ -9,7 +9,7 @@ import Router from 'koa-router';
 import https from 'https'
 import fs from 'fs'
 
-import ClientManager from './lib/ClientManager';
+import ClientManager from './lib/ClientManager.js';
 
 const debug = Debug('localtunnel:server');
 const path = require('path');
@@ -144,7 +144,7 @@ export default function(opt) {
 			}
 
 			// Did we find the user
-			if (UsersList.hasOwnProperty(usrid) || UsersList.includes(usrid)){
+			if (UsersList.hasOwnProperty(usrid) || (Array.isArray(UsersList) && UsersList.includes(usrid)) ){
 				debug('Client approved - success, Client IP: %s',ctx.request.ip);
 				return true;
 			}
@@ -179,7 +179,12 @@ export default function(opt) {
 			}
 			debug('Userlist read, found: %s entries',Object.keys(UsersList).length);
 		}
-
+	}
+	function writeUsers(){
+		let data = JSON.stringify(UsersList, null, 2);
+		fs.writeFile(process.env.USERSFILE, data, (err) => {
+			if (err) throw err;
+		});
 	}
 
 
@@ -308,6 +313,79 @@ export default function(opt) {
 			noUsers: Object.keys(UsersList).length,
 			PrevNoUsers: prevUsers
 		};
+	});
+
+
+	// Add users
+	router.post('/api/user/:user', async (ctx, next) => {
+		// Do we have users
+		if (process.env.USERSFILE === undefined || process.env.USERSFILE == ""){
+			ctx.throw(404);
+			return;
+		}
+
+		const userID = ctx.params.user;
+		// Api header key is the first one - if that fails we can use the basic auth stuff
+		if (!apiKeyCheck(ctx)){
+			// Basic auth check - we need this and we will prompt if present
+			if (!adminAuth(ctx,true,true)){
+				debug('/api/status blocked for %s',ctx.request.ip);
+				ctx.throw(403, 'Forbidden');
+				return;
+			}
+		}
+		// Load the users list
+		loadUsers();
+
+		// Simple user list or full
+		var bUserAdded = false;
+		if (Array.isArray(UsersList)){
+			UsersList.push(userID);
+			bUserAdded = true;
+		}else if (ctx.request.headers['x-secret'] !== undefined && ctx.request.headers['x-secret'] != ""){
+			UsersList[userID] = ctx.request.headers['x-secret'];
+			bUserAdded = true;
+		}
+		if (bUserAdded){
+			writeUsers();
+			ctx.body = 'User "'+ userID+ '"" addedd';
+		}else{
+			ctx.throw(403, 'Bad Request');
+			ctx.body = 'User "'+ userID+ '"" NOT addedd';
+		}
+		debug(ctx.body);
+		return;
+	});
+
+	// delete users
+	router.delete('/api/user/:user', async (ctx, next) => {
+		// Do we have users
+		if (process.env.USERSFILE === undefined || process.env.USERSFILE == ""){
+			ctx.throw(404);
+			return;
+		}
+		
+		const userID = ctx.params.user;
+		// Api header key is the first one - if that fails we can use the basic auth stuff
+		if (!apiKeyCheck(ctx)){
+			// Basic auth check - we need this and we will prompt if present
+			if (!adminAuth(ctx,true,true)){
+				debug('/api/status blocked for %s',ctx.request.ip);
+				ctx.throw(403, 'Forbidden');
+				return;
+			}
+		}
+		// Load the users list
+		loadUsers();
+
+		// Delete user
+		if (UsersList.hasOwnProperty(userID) || (Array.isArray(UsersList) && UsersList.includes(userID)) ){
+			delete UsersList[userID];
+		}
+		writeUsers();
+		ctx.body = 'User "'+ userID+ '"" deleted';
+		debug(ctx.body);
+		return;
 	});
 
 	// Main status api
@@ -558,7 +636,7 @@ export default function(opt) {
 	if (opt.secure) {
 		// Do we have the file to run a secure setup?
 		if (!fs.existsSync(process.env.SSL_KEY) || !fs.existsSync(process.env.SSL_CERT)) {
-			console.log('Bad or missing cert files');
+			console.error('Bad or missing cert files');
 			process.exit(1);
 		}
 		debug('Running secure server, https, using %s , %s',process.env.SSL_KEY,process.env.SSL_CERT);
