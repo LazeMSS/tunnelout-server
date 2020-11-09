@@ -34,7 +34,9 @@
 	}
 
 	function handleEvent(e) {
-		
+		if (e.target.id === "newlink") {
+			return true;
+		}
 		// Load server status
 		if (e.target.dataset.serverstatus != undefined){
 			history.pushState('server','server status','#server');
@@ -62,7 +64,11 @@
 
 		// Set headers
 		if (e.target.dataset.header != undefined){
-			document.getElementById('mainHeader').innerHTML = e.target.dataset.header;
+			if (e.target.dataset.clientlookup != undefined){
+				document.getElementById('mainHeader').innerHTML = '<a target="_new" id="newlink" href="'+window.location.protocol + '//'+e.target.dataset.header+'.'+ window.location.host +'">'+e.target.dataset.header+'</a>';
+			}else{
+				document.getElementById('mainHeader').innerHTML = e.target.dataset.header;
+			}
 		}
 		if (e.target.dataset.subheader != undefined){
 			document.getElementById('subHeader').innerHTML = e.target.dataset.subheader;
