@@ -234,6 +234,7 @@ export default function(opt) {
 						return;
 					}
 				}
+
 				// Do we have auth headers
 				var auth = ctx.request.headers['authorization'];
 				clientdash = false;
@@ -388,6 +389,30 @@ export default function(opt) {
 		return;
 	});
 
+	// Disconnect user users
+	router.post('/api/client/:clientid/disconnect', async (ctx, next) => {
+		// Api header key is the first one - if that fails we can use the basic auth stuff
+		if (!apiKeyCheck(ctx)){
+			// Basic auth check - we need this and we will prompt if present
+			if (!adminAuth(ctx,true,true)){
+				debug('/api/client/ for %s',ctx.request.ip);
+				ctx.throw(403, 'Forbidden');
+				return;
+			}
+		}
+		const clientId = ctx.params.clientid;
+		const client = manager.getClient(clientId);
+		// Client not found
+		if (!client) {
+			ctx.throw(404);
+			return;
+		}
+		manager.disconnect(clientId);
+		ctx.body = 'Client "' + clientId + '" disconnected';
+		debug(ctx.body);
+		return;
+	});
+
 	// Main status api
 	router.get('/api/status', async (ctx, next) => {
 		// Api header key is the first one - if that fails we can use the basic auth stuff
@@ -403,11 +428,69 @@ export default function(opt) {
 		// Get the stats objects and build the output
 		const stats = manager.stats;
 		const clients = manager.clients;
-		var returnClients = Object.keys(clients);
+		var returnClients = {};
 		var loadavgres = [];
 		os.loadavg().forEach(function(currentValue , index){
 			loadavgres.push(currentValue.toFixed(2));
 		});
+
+		var availMem = Math.floor((os.freemem()/1024)/1024)+ " MB"
+		// Fix for avail mem on unix
+		if (os.platform() == "linux"){
+			availMem = Math.floor(Number(/MemAvailable:[ ]+(\d+)/.exec(fs.readFileSync('/proc/meminfo', 'utf8'))[1])/1024) + " MB";
+		}
+
+		// Build clients
+		Object.keys(clients).forEach(function (key) {
+			returnClients[key] = { 'ip_adr' : clients[key].ipAdr };
+			/*
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };
+			returnClients[hri.random()+"horse"] = { 'ip_adr' : clients[key].ipAdr };*/
+
+		});
+
+
+		// Params data quick handler
+		var inst = process.argv.slice(2);
+		var keyVal = "";
+		var paramsList = {};
+		Object.keys(inst).forEach(function (key) {
+			if (inst[key][0] == "-"){
+				if (keyVal != ""){
+					paramsList[keyVal] = true;
+				}
+				keyVal = inst[key];
+			}else{
+				if (keyVal != ""){
+					paramsList[keyVal] = inst[key];
+					keyVal = "";
+				}
+			}
+		});
+		// add last params
+		if (keyVal != ""){
+			paramsList[keyVal] = true;
+		}
 
 		ctx.body = {
 			clients: returnClients,
@@ -416,11 +499,12 @@ export default function(opt) {
 				cpu_usage: process.cpuUsage(),
 				uptime: Math.floor(process.uptime()),
 				exec : process.execPath,
+				self: process.argv.slice(1,2).toString(),
 				pid: process.pid,
 			},
 			os:{
 				cpus: os.cpus().length,
-				free_mem : Math.floor((os.freemem()/1024)/1024)+ " MB",
+				free_mem : availMem,
 				total_mem: Math.floor((os.totalmem()/1024)/1024)+ " MB",
 				uptime: os.uptime(),
 				hostname : os.hostname(),
@@ -432,7 +516,7 @@ export default function(opt) {
 				valid_hosts : validHosts,
 				landing_page: landingPage,
 				schema: schema,
-				arguments: process.argv.slice(2)
+				arguments: paramsList,
 			}
 		};
 	});
@@ -485,9 +569,16 @@ export default function(opt) {
 		}
 		// Let send the data
 		ctx.body = {
+			basic : {
+				id : client.id,
+				ip_adr : client.ipAdr,
+				auth : (client.authpass !== null && client.authusr !== null),
+				secure: client.agent.secure,
+				closed: client.agent.closed,
+				keep_alive: client.agent.keepAlive,
+				keep_alive_ms: client.agent.keepAliveMsecs,
+			},
 			stats : client.stats(),
-			id : client.id,
-			auth : (client.authpass !== null && client.authusr !== null),
 		}
 	});
 
@@ -510,6 +601,8 @@ export default function(opt) {
 	app.use(router.routes());
 	app.use(router.allowedMethods());
 
+
+	// ------------------------------------- MAIN CLIENT ENDPOINTS ------------------------------------------
 	// root endpoint for new/random clients
 	app.use(async (ctx, next) => {
 		const reqpath = ctx.request.path;
@@ -545,13 +638,17 @@ export default function(opt) {
 
 			// Getting a new random one or should we use the fixed on
 			let reqId = getUserHostName(ctx);
+			let reqIdOrg = reqId;
 			if (reqId == null){
 				reqId = hri.random();
-				debug('Making new random client with id "%s"', reqId);
-			}else{
-				debug('Making new client with id "%s"', reqId);
 			}
-			const info = await manager.newClient(reqId,authUser,authPass);
+
+			const info = await manager.newClient(reqId,authUser,authPass,usrid,ctx.request.ip);
+			if (reqIdOrg != null ){
+                                debug('Made new random client with id "%s"', info.id);
+                        }else{
+                                debug('Made new client with id "%s"', info.id);
+                        }
 
 			const url = schema + '://' + info.id + '.' + ctx.request.host;
 			info.url = url;
@@ -625,7 +722,7 @@ export default function(opt) {
 		}
 
 		debug('Making new client with id "%s"', reqId);
-		const info = await manager.newClient(reqId,authUser,authPass);
+		const info = await manager.newClient(reqId,authUser,authPass,ctx.request.ip);
 		const url = schema + '://' + info.id + '.' + ctx.request.host;
 		info.url = url;
 

@@ -1,41 +1,84 @@
 <!doctype html>
 <html lang="en">
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta name="description" content="localtunnel server dashboard">
-	<title>localtunnel server</title>
-	<link rel="stylesheet" href="https://unpkg.com/purecss@2.0.3/build/pure-min.css" integrity="sha384-cg6SkqEOCV1NbJoCu11+bm0NvBRc8IYLRGXkmNrqUBfTjmMYwNKPWBTIKyw9mHNJ" crossorigin="anonymous">
-	<link rel="stylesheet" href="main.css">
-</head>
-<body>
-<div id="layout">
-	<!-- Menu toggle -->
-	<a href="#menu" id="menuLink" class="menu-link">
-		<!-- Hamburger icon -->
-		<span></span>
-	</a>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<!-- Bootstrap CSS -->
+		<link href="//cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+		<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+		<link rel="stylesheet" href="main.css">
+		<title>localTunnel dashboard</title>
+	</head>
+	<body class="bg-light pt-5">
+		<nav class="shadow fixed-top px-3 py-2 navbar navbar-dark bg-dark">
+			<div class="container-fluid">
+				<span class="navbar-brand mb-0 h1"><a class="navbar-brand me-0" href="#">localTunnel</a> / <span id="mainheader"></span></span>
+				<div class="spinner-border spinner-border-sm text-primary d-none" id="fetchSpinner" role="status">
+					<span class="visually-hidden">Loading...</span>
+				</div>
+				<button type="button" id="backBtn" onclick="javascript:loadAdmin(true);" class="d-none btn btn-primary btn-sm"><i class="bi bi-caret-left-fill"></i> Back</button>
+			</div>
+		</nav>
 
-	<div id="menu">
-		<div class="pure-menu">
-			<a class="pure-menu-heading" href="#">localtunnel</a>
-			<ul class="pure-menu-list" id="menulist">
-			</ul>
+		<div class="container-xl pt-3 pb-5 mb-3">
+			<div class="position-absolute top-50 start-50 translate-middle" id="mainSpinner">
+				<div class="text-center">
+				  <div class="spinner-border text-primary ms-auto" role="status" aria-hidden="true"></div>
+				  <strong clasS="d-block">Loading...</strong>
+				</div>
+			</div>
+			<div id="serverdashboard" class="d-none row row-cols-1 row-cols-md-1 row-cols-lg-2 row-cols-xxl-2 g-3 p-2"></div>
+			<div id="clientdashboard" class="d-none row row-cols-1 row-cols-md-1 row-cols-lg-1 row-cols-xxl-1 g-3 p-2"></div>
+			<footer class="bg-light fixed-bottom d-flex flex-wrap justify-content-between align-items-center p-2 px-3 my-0 border-top">
+		    	<p class="col-md-4 mb-0 text-muted">localTunnel</p>
+		    	<p class="text-muted mb-0">Updated <span id="lastudpated"></span></p>
+		    </footer>
 		</div>
-	</div>
+		<script src="//cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/cash/8.1.0/cash.min.js"></script>
+		<script src="main.js"></script>
 
-	<div id="main">
-		<div class="header">
-			<h1 id="mainHeader">Localtunnel</h1>
-			<h2 id="subHeader">[dashboard]</h2>
+		<template id="cardtemplate">
+			<div class="col p-2">
+				<div class="card h-100 shadow-sm m-2 servercard">
+					<div class="card-body">
+						<span class="shadow-sm bg-primary bg-gradient badge rounded-pill position-absolute top-0 start-100 translate-middle p-2 mt-1 fs-3"><i class="cardmainicon"></i></span>
+						<h5 class="card-title"></h5>
+						<ul class="list-group list-group-flush noRemove"></ul>
+					</div>
+				</div>
+			</div>
+		</template>
+
+		<div class="modal fade" tabindex="-1" id="headerinspect">
+			<div class="modal-dialog modal-lg">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">Headers</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body"></div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+					</div>
+				</div>
+			</div>
 		</div>
 
-		<div class="content" id="maincontent">
+		<div class="modal fade" id="confirmDialog" tabindex="-1">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title"></h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body"></div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
+						<button type="button" class="btn btn-primary" id="confirmDialogYes">Yes</button>
+					</div>
+				</div>
+			</div>
 		</div>
-	</div>
-</div>
-
-<script src="main.js"></script>
-<!--- based on https://purecss.io/layouts/ -->
-</body>
+	</body>
 </html>
