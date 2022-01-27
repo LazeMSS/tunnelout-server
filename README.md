@@ -92,9 +92,13 @@ If this flags is set to true it tells the server that the client is allowed to o
 
 ## REST API
 
-### GET /api/tunnels
+### GET /api/tunnels/ID/status
 
-Create a new tunnel. A LocalTunnel client posts to this enpoint to request a new tunnel with a specific name or a randomly assigned name.
+Get the status for tunnel with "ID"
+
+### DELETE /api/client/tunnels/ID
+
+Disconnect the tunnel with "ID" from the server
 
 ### GET /api/status
 
@@ -111,6 +115,7 @@ Add/Update a user to the USERSFILE file
 ### DELETE /api/user/USERNAME
 
 Delete a user from USERSFILE file
+
 
 
 ### API security
