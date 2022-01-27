@@ -389,29 +389,6 @@ export default function(opt) {
 		return;
 	});
 
-	// Disconnect user users
-	router.post('/api/client/:clientid/disconnect', async (ctx, next) => {
-		// Api header key is the first one - if that fails we can use the basic auth stuff
-		if (!apiKeyCheck(ctx)){
-			// Basic auth check - we need this and we will prompt if present
-			if (!adminAuth(ctx,true,true)){
-				debug('/api/client/ for %s',ctx.request.ip);
-				ctx.throw(403, 'Forbidden');
-				return;
-			}
-		}
-		const clientId = ctx.params.clientid;
-		const client = manager.getClient(clientId);
-		// Client not found
-		if (!client) {
-			ctx.throw(404);
-			return;
-		}
-		manager.disconnect(clientId);
-		ctx.body = 'Client "' + clientId + '" disconnected';
-		debug(ctx.body);
-		return;
-	});
 
 	// Main status api
 	router.get('/api/status', async (ctx, next) => {
@@ -581,6 +558,31 @@ export default function(opt) {
 			stats : client.stats(),
 		}
 	});
+
+	// Disconnect user users
+	router.delete('/api/tunnels/:id', async (ctx, next) => {
+		// Api header key is the first one - if that fails we can use the basic auth stuff
+		if (!apiKeyCheck(ctx)){
+			// Basic auth check - we need this and we will prompt if present
+			if (!adminAuth(ctx,true,true)){
+				debug('/api/client/ for %s',ctx.request.ip);
+				ctx.throw(403, 'Forbidden');
+				return;
+			}
+		}
+		const clientId = ctx.params.id;
+		const client = manager.getClient(clientId);
+		// Client not found
+		if (!client) {
+			ctx.throw(404);
+			return;
+		}
+		manager.disconnect(clientId);
+		ctx.body = 'Client "' + clientId + '" disconnected';
+		debug(ctx.body);
+		return;
+	});
+
 
 
 	// Basic auth handler

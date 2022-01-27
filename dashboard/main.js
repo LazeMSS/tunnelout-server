@@ -130,12 +130,12 @@ function fetchData(url,callbackf){
 	});
 }
 
-function apiPost(url,callbackf){
+function apiGeneric(url,setmethod,callbackf){
 	$('#mainSpinner').remove();
 	$('#fetchSpinner').removeClass('d-none');
 
 	fetch(url, {
-    	method: 'POST'
+    	method: setmethod
   	})
   	.then(async response => {
 		const isJson = response.headers.get('content-type')?.includes('application/json');
@@ -369,7 +369,7 @@ function buildAdminClientList(dataSet){
 		discli.find('button').on('click',function(event){
 			showConfirm('<i class="bi bi-door-closed me-1"></i>Confirm disconnect client&hellip;','Are you sure you want to disconnect "'+hostname+'"?',function(result){
 				if (result){
-					apiPost('/api/client/'+hostname+'/disconnect',function(data){
+					apiGeneric('/api/tunnels/'+hostname,'DELETE',function(data){
 						loadAdmin(false);
 					});
 				}
