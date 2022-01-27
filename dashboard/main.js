@@ -10,7 +10,6 @@
 	----------
 
 	UI
-		ajax error handling output
 		admin:
 			user editor/display
 			block/delete client in client list
@@ -117,7 +116,8 @@ function fetchData(url,callbackf){
 		const data = isJson ? await response.json() : null;
 		$('#fetchSpinner').addClass('d-none');
 		if (!response.ok) {
-			const error = (data && data.message) || response.status;
+			var error = (data && data.message) || response.status;
+			error += " " + response.statusText;
 			return Promise.reject(error);
 		}
 		if (typeof callbackf == "function"){
@@ -126,7 +126,7 @@ function fetchData(url,callbackf){
 	})
 	.catch(error => {
 		$('#fetchSpinner').addClass('d-none');
-		console.error('There was an error!', error);
+		ajaxError("Failed to fetch data on: "+url,error);
 	});
 }
 
@@ -142,9 +142,9 @@ function apiGeneric(url,setmethod,callbackf){
 		const data = isJson ? await response.json() : await response.text();
 
 		$('#fetchSpinner').addClass('d-none');
-
 		if (!response.ok) {
-			const error = (data && data.message) || response.status;
+			var error = (data && data.message) || response.status;
+			error += " " + response.statusText;
 			return Promise.reject(error);
 		}
 		if (typeof callbackf == "function"){
@@ -153,8 +153,14 @@ function apiGeneric(url,setmethod,callbackf){
 	})
 	.catch(error => {
 		$('#fetchSpinner').addClass('d-none');
-		console.error('There was an error!', error);
+		ajaxError("Failed to call the API on: "+url,error+"\nMethod:"+setmethod);
 	});
+}
+
+function ajaxError(message,tech){
+	$('.ajax-alert').remove();
+	var alertMSG = $('<div class="ajax-alert alert alert-primary alert-dismissible" role="alert"><h4 class="alert-heading"><i class="me-1 bi bi-bug"></i>Ajax/Backend error</h4><p>'+message+'</p><hr/><pre class="mb-0">Data:\n'+tech+'</pre><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+	$('#mainContainer').prepend(alertMSG);
 }
 
 function loadClient(lastPath,pop){
@@ -250,6 +256,7 @@ function updateTime(){
 
 // Build main UI/Cards
 function buildDashCards(data,target){
+	var noclients = 0;
 	$.each(data,function(key,dataSet){
 		var templateSet = {'title' : sysToUsrTxt(key), 'icon' : 'removeMe'};
 		if (key in templates){
@@ -271,8 +278,8 @@ function buildDashCards(data,target){
 
 			// Update clients
 			if (target == "serverdashboard" && key == "clients"){
-				$('#noclients').text(Object.keys(dataSet).length);
 				$('#clientList').replaceWith(buildAdminClientList(dataSet));
+				noclients = Object.keys(dataSet).length;
 			}else{
 				updateUiItem(key,dataSet);
 			}
@@ -298,7 +305,8 @@ function buildDashCards(data,target){
 
 			// Special for clients
 			if (target == "serverdashboard" && key == "clients"){
-				clon.find('.card-title').after('<h1 class="display-1 text-center" id="noclients">'+Object.keys(dataSet).length+'</h1>');
+				noclients = Object.keys(dataSet).length;
+				clon.find('.card-title').after('<h1 class="display-1 text-center" id="noclients">'+noclients+'</h1>');
 				clon.find('ul.list-group').replaceWith(buildAdminClientList(dataSet));
 			}else{
 				// Standard data
@@ -314,6 +322,10 @@ function buildDashCards(data,target){
 	});
 
 	// show search
+	if (noclients == 0){
+		noclients += '<i class="position-absolute top-50 start-50 translate-middle w-100 d-block text-primar bi bi-emoji-neutral text-secondary text-opacity-25 hourglass" style="font-size:200%"></i>';
+	}
+	$('#noclients').html(noclients);
 	if ($('#clientList table tbody tr').length > 10){
 		if (!$('#clientFilter').length){
 			$('#clientList').before($('<input id="clientFilter" type="search" class="mb-2 form-control" placeholder="Filter clients">').on('search keyup',function(event){
