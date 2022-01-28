@@ -39,6 +39,7 @@ export default function(opt) {
         return myTldjs.getSubdomain(hostsplit[0]);
 	}
 
+	// Auth check for a user
 	function authThis(authval,user,pass){
 		var tmp = authval.split(' ');
 		var buf = new Buffer(tmp[1], 'base64');
@@ -55,7 +56,7 @@ export default function(opt) {
 	// Wrapper function for basic auth - hack but it works fast
 	// requiresauth = if false then we will fail login even if there is no login options setup
 	// promptlogin = should we automatically create a login prompt
-	function adminAuth(ctx,requiresauth = false,promptlogin  = true){
+	function basicAuthCheck(ctx,requiresauth = false,promptlogin  = true){
 		// Do we have basic auth
 		if (process.env.ADMIN_AUTH === undefined || process.env.ADMIN_AUTH === "false"){
 			// Do we need auth
@@ -78,7 +79,7 @@ export default function(opt) {
 				if (promptlogin){
 					ctx.throw(401, 'Unauthorized ');
 					ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
-					ctb.body = 'Auth missing';
+					ctx.body = 'Auth missing';
 				}
 				return false;
 			}
@@ -109,7 +110,7 @@ export default function(opt) {
 			debug("Client auth failed");
 			res.statusCode = 401;
 			res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
-			res.end('Auth needed');
+			res.end('Auth missing');
 			return;
 		}
 		return true;
@@ -189,75 +190,72 @@ export default function(opt) {
 
 
 	// ROUTES FOR dashboard - a small webserver wrapper
-	router.get(dashboardfolder+'*', async (ctx, next) => {
+	router.get('/dashboard*', async (ctx, next) => {
 		var reqLink = 'index.html';
-		var clientdash = false;
+		var clientid = null;
 		var folder = __dirname+dashboardfolder;
 
+		// redirect to add trailing slash to the url
+		if (ctx.params[0] == ""){
+			ctx.status = 301;
+			ctx.redirect("/dashboard/");
+                        return
+		}
+
 		// Requesting anything but main folder
-		if (ctx.params[0] != ""){
+		if (ctx.params[0] != "/"){
 			var reqpath = ctx.params[0].split("/");
-			// Did we request a client link: /dasboard/c/*" - then we are handling a client/User login
-			if (reqpath.length >= 2 && reqpath[0] == "c") {
+			// Did we request a client link: /dasboard/c/HOSTNAME" - then we are handling a client/User login
+			// [ '', 'c', 'hostname1', 'main.js' ] <-- example
+			if (reqpath.length >= 2 && reqpath[1] == "c") {
 				// Client request
-				clientdash = true;
-				// What file do we really want?
-				if (reqpath[2] !== undefined){
-					// Set file request to the requested if its not blank
-					if (reqpath[2] != ""){
-						reqLink = reqpath[2];
-					}
-				}else{
-					//Redirect to clean the "input"
-					ctx.status = 301;
-					ctx.redirect(ctx.request.path+"/");
-					return
-				}
-			}else{
-				// Admin request
-				reqLink = path.basename(ctx.params[0]);
+				clientid = reqpath[2];
+			}
+			// Find the last part of the url
+			reqLink = reqpath[reqpath.length-1];
+		}
+
+		// nothing is requested or foobar like /dashboard/main.js/ then reset to index.html
+		if (reqLink == ""){
+			reqLink = "index.html";
+		}
+
+		// Are we serving a client? then try and find the client
+		if (clientid != null){
+			const client = manager.getClient(clientid);
+			// Failed to find the client - not connected
+			if (!client) {
+				ctx.throw(404);
+				return;
 			}
 
-			// Are we serving a client? then try and find the client
-			if (clientdash){
-				const client = manager.getClient(reqpath[1]);
-				// Failed to find the client!
-				if (!client) {
-					ctx.throw(404);
-					return;
-				}else{
-					var cUsr = client.getAuthUsr();
-					var cPass = client.getAuthPass();
-					// Nothing to validate against then we fail - we must have something to help make it secure
-					if (cUsr == null || cPass == null){
-						ctx.throw(409);
-						return;
-					}
-				}
+			var cUsr = client.getAuthUsr();
+			var cPass = client.getAuthPass();
+			// Nothing to validate against then we fail - we must have something to help make it secure/safe
+			if (cUsr == null || cPass == null){
+				ctx.throw(409);
+				return;
+			}
 
-				// Do we have auth headers
-				var auth = ctx.request.headers['authorization'];
-				clientdash = false;
-				if(auth){
-					if (authThis(auth,cUsr,cPass)) {
-						clientdash = true;
-						ctx.cookies.set('authType', 'user',{expires : 0, httpOnly: false});
-					}
-				}
+			// Do we have auth headers and do they work
+			var auth = ctx.request.headers['authorization'];
+			if(auth && authThis(auth,cUsr,cPass)) {
+				ctx.cookies.set('authType', 'user',{expires : 0, httpOnly: false});
+			}else{
+				clientid = null;
 			}
 		}
 
-		// If not client dash or not logged in as client then we request a login
-		if (!clientdash){
-			// Check admin login - we need a login and we will prompt for it
-			if (!adminAuth(ctx,true,true)){
-				ctx.throw(401, 'Unauthorized ');
-				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
-				ctb.body = 'Auth needed';
+		// if not client then we ask for permission
+		if (clientid == null){
+			if (!basicAuthCheck(ctx,true,true)){
+				ctx.throw(403, 'Forbidden');
 				return;
 			}
 			ctx.cookies.set('authType', 'admin',{expires : 0, httpOnly: false});
 		}
+
+		reqLink = path.basename(reqLink);
 
 		// Do we have the file requested?
 		if (!fs.existsSync(folder+reqLink)){
@@ -277,6 +275,7 @@ export default function(opt) {
 			'js'   : 'text/javascript',
 			'json' : 'application/json',
 		};
+
 		var fileExt = reqLink.split('.').pop().toLowerCase();
 		var mimetype = "text/html";
 		if (mimeTypes.hasOwnProperty(fileExt)){
@@ -298,7 +297,7 @@ export default function(opt) {
 		// Api header key is the first one - if that fails we can use the basic auth stuff
 		if (!apiKeyCheck(ctx)){
 			// Basic auth check, we MUST have security and prompt for login
-			if (!adminAuth(ctx,true,true)){
+			if (!basicAuthCheck(ctx,true,true)){
 				debug('/api/reloadUsers was blocked for %s',ctx.request.ip);
 				ctx.throw(403, 'Forbidden');
 				return;
@@ -329,7 +328,7 @@ export default function(opt) {
 		// Api header key is the first one - if that fails we can use the basic auth stuff
 		if (!apiKeyCheck(ctx)){
 			// Basic auth check - we need this and we will prompt if present
-			if (!adminAuth(ctx,true,true)){
+			if (!basicAuthCheck(ctx,true,true)){
 				debug('/api/status blocked for %s',ctx.request.ip);
 				ctx.throw(403, 'Forbidden');
 				return;
@@ -365,12 +364,12 @@ export default function(opt) {
 			ctx.throw(404);
 			return;
 		}
-		
+
 		const userID = ctx.params.user;
 		// Api header key is the first one - if that fails we can use the basic auth stuff
 		if (!apiKeyCheck(ctx)){
 			// Basic auth check - we need this and we will prompt if present
-			if (!adminAuth(ctx,true,true)){
+			if (!basicAuthCheck(ctx,true,true)){
 				debug('/api/status blocked for %s',ctx.request.ip);
 				ctx.throw(403, 'Forbidden');
 				return;
@@ -395,7 +394,7 @@ export default function(opt) {
 		// Api header key is the first one - if that fails we can use the basic auth stuff
 		if (!apiKeyCheck(ctx)){
 			// Basic auth check - we need this and we will prompt if present
-			if (!adminAuth(ctx,true,true)){
+			if (!basicAuthCheck(ctx,true,true)){
 				debug('/api/status blocked for %s',ctx.request.ip);
 				ctx.throw(403, 'Forbidden');
 				return;
@@ -516,7 +515,7 @@ export default function(opt) {
 		}
 
 		// Lets try login using the main api auth if the apiKeyCheck failed, we need it, but wont prompt for it - normally the api is used by the dashboard
-		if (!loginOk && adminAuth(ctx,true,false)){
+		if (!loginOk && basicAuthCheck(ctx,true,false)){
 			loginOk = true;
 		}
 
@@ -540,7 +539,7 @@ export default function(opt) {
 				debug("Client auth failed for client api");
 				ctx.throw(401, 'Unauthorized ');
 				ctx.set('WWW-Authenticate', 'Basic realm="Secure Area"');
-				ctb.body = 'Auth needed';
+				ctx.body = 'Auth missing';
 				return;
 			}
 		}
@@ -564,7 +563,7 @@ export default function(opt) {
 		// Api header key is the first one - if that fails we can use the basic auth stuff
 		if (!apiKeyCheck(ctx)){
 			// Basic auth check - we need this and we will prompt if present
-			if (!adminAuth(ctx,true,true)){
+			if (!basicAuthCheck(ctx,true,true)){
 				debug('/api/client/ for %s',ctx.request.ip);
 				ctx.throw(403, 'Forbidden');
 				return;
@@ -593,7 +592,7 @@ export default function(opt) {
 			if (401 == err.status) {
 				ctx.status = 401;
 				ctx.set('WWW-Authenticate', 'Basic');
-      			ctx.body = 'Not allowed!';
+	      			ctx.body = 'Not allowed!';
 			} else {
 				throw err;
 			}
