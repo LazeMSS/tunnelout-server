@@ -1,14 +1,6 @@
 /**
 
  todo:
- 	backend:
- 		improve arguments output from server - get data from commander.js when switching to that as argument parser
-
-	tunnelclient:
-		local https problems
-
-	----------
-
 	UI
 		admin:
 			user editor/display
@@ -171,7 +163,7 @@ function loadClient(lastPath,pop){
 	}
 
 	// Get data and pop if successfull
-	fetchData('/api/tunnels/'+lastPath+'/status',function(data){
+	fetchData('/api/tunnels/'+lastPath,function(data){
 		if (pop){
 			history.pushState('/dashboard/c/'+lastPath,null,'/dashboard/c/'+lastPath+"/");
 		}
@@ -181,7 +173,7 @@ function loadClient(lastPath,pop){
 	// server status automatic refresh
 	if (clientTimer == null){
 		clientTimer = setInterval(function(){
-			fetchData('/api/tunnels/'+lastPath+'/status',buildUserDash);
+			fetchData('/api/tunnels/'+lastPath,buildUserDash);
 		}, 30000);
 	}
 }
@@ -374,7 +366,7 @@ function buildAdminClientList(dataSet){
 		})
 		trow.append(link);
 
-		link = $('<td><a href="https://whois.domaintools.com/'+data.ip_adr+'" target="_blank">'+data.ip_adr+'<i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>');
+		link = $('<td><a href="https://www.whois.com/whois/'+data.ip_adr+'" target="_blank">'+data.ip_adr+'<i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>');
 		trow.append(link);
 
 		var discli = $('<td class="text-end pe-2"><button type="button" title="Disconnect client" class="btn btn-sm btn-outline-primary"><i class="bi bi-door-closed"></i></button></td>');
