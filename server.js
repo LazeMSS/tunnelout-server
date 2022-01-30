@@ -1,6 +1,7 @@
 /*
  TODO:
-    improve arguments output from server - get data from commander.js when switching to that as argument parser
+    change all names from local tunnel
+    make env. variables prefixed aka LT_ or similar
     options to force usage of users file = x-user-key in hosting
     Better post options for user / include body
     remove old way of requesting new tunnel - simplified

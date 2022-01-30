@@ -1,7 +1,16 @@
 #!/usr/bin/env -S node -r esm
 
 import 'localenv';
-import optimist from 'optimist';
+const {
+    Command,
+    Option
+} = require("commander");
+
+const {
+    version
+} = require("../package");
+
+const program = new Command();
 
 import log from 'book';
 import Debug from 'debug';
@@ -10,46 +19,29 @@ import CreateServer from '../server';
 
 const debug = Debug('localtunnel');
 
-const argv = optimist
-    .usage('Usage: $0 --port [num]')
-    .options('secure', {
-        default: false,
-        describe: 'use this flag to indicate proxy over https'
-    })
-    .options('port', {
-        default: '80',
-        describe: 'listen on this port for outside requests'
-    })
-    .options('address', {
-        default: '0.0.0.0',
-        describe: 'IP address to bind to'
-    })
-    .options('domain', {
-        describe: 'Specify the base domain name. This is optional if hosting localtunnel from a regular example.com domain. This is required if hosting a localtunnel server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.come)',
-    })
-    .options('max-sockets', {
-        default: 10,
-        describe: 'maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)'
-    })
-    .options('landing', {
-        default: 'https://cloudkit.app',
-        describe: 'The landing page for redirect from root domain'
-    })
-    .argv;
 
-if (argv.help) {
-    optimist.showHelp();
-    process.exit();
-}
+program
+    .usage("--port <number> <options>")
+    .addOption(new Option("-p, --port [number]", "Listen on this port for outside requests aka public port").default(80).env("PORT").makeOptionMandatory())
+    .addOption(new Option("-s, --secure", "Use this flag to indicate proxy over https").default(true).env("SECURE").makeOptionMandatory())
+    .addOption(new Option("-i, --address [number]", "IP address to bind to").default('0.0.0.0').env("IPADR"))
+    .addOption(new Option("-d, --domain [string]", "Specify the base domain name. This is optional if hosting localtunnel from a regular example.com domain. This is required if hosting a localtunnel server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.come").env("DOMAIN"))
+    .addOption(new Option("-m, --max-sockets [number]", "Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)").default(10).env("MAXSOCK"))
+    .addOption(new Option("-l, --landing [string]", "The landing page for redirect from root domain").default('http://google.com').env("LANDING"))
+    .version(version);
+
+program.parse(process.argv);
+const options = program.opts();
+console.log(options);
 
 const server = CreateServer({
-    max_tcp_sockets: argv['max-sockets'],
-    secure: argv.secure,
-    domain: argv.domain,
-    landing: argv.landing,
+    max_tcp_sockets: options.maxSockets,
+    secure: options.secure,
+    domain: options.domain,
+    landing: options.landing,
 });
 
-server.listen(argv.port, argv.address, () => {
+server.listen(options.port, options.address, () => {
     debug('server listening on port: %d', server.address().port);
 });
 
@@ -68,6 +60,3 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
     log.error(reason);
 });
-
-// vim: ft=javascript
-
