@@ -1,9 +1,12 @@
 /*
  TODO:
     improve arguments output from server - get data from commander.js when switching to that as argument parser
-    options to force usage of users file = x-user-key
+    options to force usage of users file = x-user-key in hosting
+    Better post options for user / include body
+    remove old way of requesting new tunnel - simplified
 
-    seperate routes in to "modules" with api and dashboard
+    seperate routes in to "modules" with web dashboard, api, auth
+
     cleanup of modules
 
     tunnelclient:
@@ -291,7 +294,7 @@ export default function (opt) {
     /* [DASHBOARD WEB UI] -------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
     // client dashboard
-    router.get(dashPath + "/c/:clientid/*", async (ctx) => {
+    router.get(dashPath + "/c/:clientid/(.*)", async (ctx) => {
         // Lookup the client id
         const client = manager.getClient(ctx.params.clientid);
 
@@ -315,7 +318,7 @@ export default function (opt) {
     })
 
     // redirect to client dashboard if just requesting /dash/c/xxxxx without trailing slash
-    router.get(dashPath + "/c/*", async (ctx) => {
+    router.get(dashPath + "/c/(.*)", async (ctx) => {
         if (!(0 in ctx.params) || ctx.params[0] == "") {
             debug("No client requested!");
             ctx.throw(404);
@@ -327,7 +330,7 @@ export default function (opt) {
     })
 
     // admin/main dashboard
-    router.get(dashPath + "*", async (ctx) => {
+    router.get(dashPath + "(.*)", async (ctx) => {
         if (!adminAuthCheck(ctx, true)) {
             return;
         }
