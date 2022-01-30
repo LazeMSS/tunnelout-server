@@ -32,7 +32,8 @@ program
 
 program.parse(process.argv);
 const options = program.opts();
-console.log(options);
+debug("Server started with options:");
+debug(options);
 
 const server = CreateServer({
     max_tcp_sockets: options.maxSockets,

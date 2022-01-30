@@ -1,14 +1,14 @@
 /*
  TODO:
-    change all names from local tunnel
+    change all names from local tunnel - new project name
     make env. variables prefixed aka LT_ or similar
-    options to force usage of users file = x-user-key in hosting
-    Better post options for user / include body
-    remove old way of requesting new tunnel - simplified
+    options to force usage/not force of users file = x-user-key in hosting
+    Better post options for user (handle body) in apis
+    remove old way of requesting new tunnel - simplified to one way - change in client
 
     seperate routes in to "modules" with web dashboard, api, auth
 
-    cleanup of modules
+    cleanup of nodes modules
 
     tunnelclient:
         local https problems
