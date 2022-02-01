@@ -1,12 +1,21 @@
 /*
  TODO:
-    change all names from local tunnel - new project name
-    make env. variables prefixed aka LT_ or similar
-    options to force usage/not force of users file = x-user-key in hosting
-    Better post options for user (handle body) in apis
-    remove old way of requesting new tunnel - simplified to one way - change in client
+    search todo :)
+    Naming syntax: client, server, agent ie
+    change all names from local tunnel - tunnelout
+    change all " to ' - nodejs standard :/
+    move all process.env out from process.env and into options on bin/server
+    make env. variables prefixed aka LT_ or similar in bin/server
 
-    seperate routes in to "modules" with web dashboard, api, auth
+    options to force usage/not force of users file = x-user-key in hosting
+
+    Better post options for user (handle body) in apis
+
+    remove old way of requesting new tunnel - simplified to one way - also change in client
+        custom header to verify client both on request and reply - including version number check - client = user-agent and server = Se
+
+    seperate routes in to "modules" with  dashboard, api, auth each file
+        https://stackoverflow.com/questions/30285683/how-can-i-split-my-koa-routes-into-separate-files/39301972
 
     cleanup of nodes modules
 
@@ -16,8 +25,8 @@
  */
 import Koa from "koa";
 import tldjs from "tldjs";
-import Debug from "debug";
 import http from "http";
+import url from "url";
 import { hri } from "human-readable-ids";
 import Router from "koa-router";
 
@@ -26,17 +35,21 @@ import fs from "fs"
 
 import ClientManager from "./lib/ClientManager.js";
 
-const debug = Debug("localtunnel:server");
+const packageInfo = require('./package');
+const debug = require('debug')('tunnelout:server');
 const path = require("path");
 const os = require("os");
 
 export default function (opt) {
     opt = opt || {};
 
+    const clientAgentValid = opt.clientValid || 'tunnelout';
+
     const validHosts = (opt.domain) ? [opt.domain] : undefined;
     const myTldjs = tldjs.fromUserSettings({ validHosts });
     const landingPage = opt.landing || "https://example.com";
     const schema = opt.secure ? "https" : "http";
+    const publicServer = (opt.publicServer) ? opt.publicServer : false;
 
     const dashPath = "/dashboard";
     const dashFolder = __dirname + "/dashboard/";
@@ -106,30 +119,32 @@ export default function (opt) {
 
     // Check if a user allowed to request a tunnel
     function checkUserHeaderLogin(ctx) {
-        if (!doWeHaveUsersEnv()) {
-            return false;
-        }
-
         // Do we have the user header
-        if (!("x-user-key" in ctx.request.headers) || ctx.request.headers["x-user-key"] === undefined) {
-            debug("x-user-key header is missing!");
-            return false;
+        let userHKey = null;
+        if ("x-user-key" in ctx.request.headers && ctx.request.headers["x-user-key"] !== undefined) {
+            userHKey = ctx.request.headers["x-user-key"];
         }
 
-        const usrid = ctx.request.headers["x-user-key"];
+        // íf dont have anything to validate the user against then we will return true on a public else false
+        if (userHKey == null || !doWeHaveUsersEnv()){
+            debug("No way to auth - public server: %s",publicServer);
+            return publicServer;
+        }
+
         // Do we have a user list - if not lets load it
         if (!Object.keys(UsersList).length) {
             loadUsers();
         }
 
         // Did we find the user
-        if (Object.prototype.hasOwnProperty.call(UsersList, usrid) || (Array.isArray(UsersList) && UsersList.includes(usrid))) {
+        if (Object.prototype.hasOwnProperty.call(UsersList, userHKey) || (Array.isArray(UsersList) && UsersList.includes(userHKey))) {
             debug("Client approved - success, Client IP: %s", ctx.request.ip);
             return true;
         }
 
-        debug("Client \"%s\" not found - failure, Client IP: %s", usrid, ctx.request.ip);
-        return false;
+        debug("Client \"%s\" not found - failure, Client IP: %s", userHKey, ctx.request.ip);
+        debug("Auth failed - public server: %s",publicServer);
+        return publicServer;
     }
 
 
@@ -498,7 +513,7 @@ export default function (opt) {
                 uptime: Math.floor(process.uptime()),
                 exec: process.execPath,
                 self: process.argv.slice(1, 2).toString(),
-                pid: process.pid,
+                pid: process.pid
             },
             os: {
                 cpus: os.cpus().length,
@@ -515,7 +530,8 @@ export default function (opt) {
                 landing_page: landingPage,
                 schema: schema,
                 arguments: paramsList,
-            }
+            },
+            packinfo: packageInfo
         };
     });
 
@@ -540,6 +556,7 @@ export default function (opt) {
         ctx.body = {
             basic: {
                 id: client.id,
+                agent: client.agentName,
                 ip_adr: client.ipAdr,
                 auth: (client.authpass !== null && client.authusr !== null),
                 secure: client.agent.secure,
@@ -610,15 +627,29 @@ export default function (opt) {
         // Did we request a new endpoint or not
         if ((ctx.query["new"] == undefined && reqpath === "/") || (parts.length !== 2 || parts[1] == "favicon.ico" || parts[1] == "robots.txt")) {
             // no new client request, send to landing page
+            debug("Non handled request");
             ctx.redirect(landingPage);
+            return;
+        }
+
+        // Valid client
+        let clientAgent = 'unknown';
+        if ('user-agent' in ctx.request.headers){
+            clientAgent = ctx.request.headers["user-agent"];
+        }
+        if (clientAgentValid !== false && clientAgent.indexOf(clientAgentValid) == -1){
+            debug("Invalid agent: %s != %s",clientAgent,clientAgentValid);
+            ctx.status = 307;
+            ctx.set('location',landingPage);
+            ctx.body = {'errorMsg' : 'Invalid user agent: ' + clientAgent};
             return;
         }
 
         // Check against users table - we allow it to be blank
         // todo: param to skip this
         if (!checkUserHeaderLogin(ctx)) {
-            ctx.throw(403, "Forbidden");
-            await next();
+            ctx.status = 403;
+            ctx.body = {'errorMsg' : 'Invalid or missing x-user-key header'};
             return;
         }
 
@@ -671,7 +702,7 @@ export default function (opt) {
         }
 
         // Create the client
-        const info = await manager.newClient(reqID, authUser, authPass, ctx.request.ip);
+        const info = await manager.newClient(reqID, authUser, authPass, ctx.request.ip,clientAgent);
 
         // Status
         if (reqID == info.id) {
@@ -679,6 +710,9 @@ export default function (opt) {
         } else {
             debug("Made new random client with id \"%s\"", info.id);
         }
+
+        // Set server header - the client validates against this
+        ctx.set('server', packageInfo.name + "/" + packageInfo.version);
 
         // Set return payload
         const url = schema + "://" + info.id + "." + ctx.request.host;

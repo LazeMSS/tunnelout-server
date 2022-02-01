@@ -27,18 +27,27 @@ var templates = {
 			'icon' 	: 'bi bi-terminal'
 		},
 
-	'clients': {
+	'clients':
+		{
 			'title'	: 'Clients',
 			'icon' 	: 'bi bi-people'
 		},
-	'basic': {
+	'basic':
+		{
 			'title'	: 'Basic',
 			'icon' 	: 'bi bi-info-lg'
 		},
-	'stats': {
+	'stats':
+		{
 			'title'	: 'Statistics',
 			'icon' 	: 'bi bi-activity'
 		},
+	'packinfo':
+		{
+			'title' : 'Application/Package',
+			'icon'	: 'bi bi-code-square',
+			'collapse' : true
+		}
 
 };
 
@@ -304,6 +313,19 @@ function buildDashCards(data,target){
 				// Standard data
 				listGroup.append(buildUlItems(dataSet,0,key));
 			}
+			if ('collapse' in templateSet && templateSet['collapse']){
+				listGroup.addClass('collapse');
+				var thisItem = listGroup[0];
+				clon.find('.card-title').on('click',function(){
+					$(this).find('i.bi').toggleClass('bi-chevron-down bi-chevron-up');
+					new bootstrap.Collapse(thisItem, {
+						toggle: true
+					})
+				})
+				.addClass('mt-2 card-title btn d-md-block text-start btn-outline-primary me-1 ')
+				.append('<i class="bi bi-chevron-down float-end"></i>');
+				// new bootstrap.Collapse(listGroup);
+			}
 
 			// Remove all empty
 			clon.find('.removeMe').remove();
@@ -352,7 +374,7 @@ function filterClients(keyword){
 }
 
 function buildAdminClientList(dataSet){
-	var domHolder = $('<div id="clientList" class="h-100 table-responsive border-bottom border-top"><table class="border-bottom-0 mb-0 caption-top text-nowrap table table-sm table-hover"><thead><tr><th>Name</th><th>IP</th><th class="text-end">Disconnect</th></tr></thead><tbody class="align-middle"></tbody></table></div>');
+	var domHolder = $('<div id="clientList" class="h-100 table-responsive border-bottom border-top"><table class="border-bottom-0 mb-0 caption-top text-nowrap table table-sm table-hover"><thead><tr><th>Name</th><th>IP</th><th class="text-end">Actions</th></tr></thead><tbody class="align-middle"></tbody></table></div>');
 	var tbody = domHolder.find('tbody');
 
 	var rowCounter = 0;
@@ -369,8 +391,8 @@ function buildAdminClientList(dataSet){
 		link = $('<td><a href="https://www.whois.com/whois/'+data.ip_adr+'" target="_blank">'+data.ip_adr+'<i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>');
 		trow.append(link);
 
-		var discli = $('<td class="text-end pe-2"><button type="button" title="Disconnect client" class="btn btn-sm btn-outline-primary"><i class="bi bi-door-closed"></i></button></td>');
-		discli.find('button').on('click',function(event){
+		var discli = $('<td class="text-end pe-2"><div class="btn-group" role="group"><button type="button" title="Open client web" class="clientOpen btn btn-sm btn-outline-primary"><i class="bi bi-eye"></button></i><button type="button" title="Disconnect client" class="clientDisc btn btn-sm btn-outline-primary"><i class="bi bi-door-closed"></i></button></div></td>');
+		discli.find('button.clientDisc').on('click',function(event){
 			showConfirm('<i class="bi bi-door-closed me-1"></i>Confirm disconnect client&hellip;','Are you sure you want to disconnect "'+hostname+'"?',function(result){
 				if (result){
 					apiGeneric('/api/tunnels/'+hostname,'DELETE',function(data){
@@ -381,7 +403,11 @@ function buildAdminClientList(dataSet){
 			event.stopImmediatePropagation();
 			event.preventDefault();
 			return false;
-		})
+		});
+		discli.find('button.clientOpen').on('click',function(event){
+			url = $('#datavalue_configuration_schema').text()+'://'+hostname+"."+$('#datavalue_valid_hosts_0').text();
+			window.open(url);
+		});
 		trow.append(discli);
 		tbody.append(trow);
 		rowCounter++;

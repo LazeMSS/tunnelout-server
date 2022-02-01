@@ -1,5 +1,21 @@
 #!/usr/bin/env -S node -r esm
 
+/*
+ todo:
+    validate input:
+        port is int
+        address is an ip
+        max-sockets
+
+    Add options:
+        usersfile location
+        x-api-key
+        ADMIN_AUTH
+        ALLOWUSRHOSTOVERRIDE
+        SSL_KEY
+        SSL_CERT
+ */
+
 import "localenv";
 const {
     Command,
@@ -17,7 +33,7 @@ import Debug from "debug";
 
 import CreateServer from "../server";
 
-const debug = Debug("localtunnel");
+const debug = require('debug')('tunnelout-server:server');
 
 
 program
@@ -28,11 +44,12 @@ program
     .addOption(new Option("-d, --domain [string]", "Specify the base domain name. This is optional if hosting localtunnel from a regular example.com domain. This is required if hosting a localtunnel server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.come").env("DOMAIN"))
     .addOption(new Option("-m, --max-sockets [number]", "Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)").default(10).env("MAXSOCK"))
     .addOption(new Option("-l, --landing [string]", "The landing page for redirect from root domain").default("http://google.com").env("LANDING"))
+    .addOption(new Option("-p, --public-server", "Allow anyone to connect, if not set the client has to provide a valid user key in x-user-key header").default(false).env("PUBLIC"))
+    .addOption(new Option("-c, --clientvalid [string]", "Client agent string to validate against").default("tunnelout").env("CLIENTVALID"))
     .version(version);
-
 program.parse(process.argv);
 const options = program.opts();
-debug("Server started with options:");
+debug("Server started with the following options:");
 debug(options);
 
 const server = CreateServer({
@@ -40,6 +57,8 @@ const server = CreateServer({
     secure: options.secure,
     domain: options.domain,
     landing: options.landing,
+    clientValid: options.clientvalid,
+    public: options.publicServer
 });
 
 server.listen(options.port, options.address, () => {
