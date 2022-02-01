@@ -3,11 +3,8 @@
     search todo :)
     Naming syntax: client, server, agent ie
 
-    change all " to ' - nodejs standard :/
     move all process.env out from process.env and into options on bin/server
-
     Better post options for user (handle body) in apis
-
     remove old way of requesting new tunnel - simplified to one way - also change in client
 
     seperate routes in to "modules" with  dashboard, api, auth each file
@@ -28,11 +25,12 @@ import Router from 'koa-router';
 
 import https from 'https';
 import fs from 'fs';
+import { cwd } from 'process';
 
 import ClientManager from './lib/ClientManager.js';
 
 const packageInfo = require('./package');
-const debug = require('debug')('tunnelout:server');
+const debug = require('debug')('tunnelout-server:main');
 const path = require('path');
 const os = require('os');
 
@@ -43,12 +41,12 @@ export default function (opt) {
 
     const validHosts = opt.domain ? [opt.domain] : undefined;
     const myTldjs = tldjs.fromUserSettings({ validHosts });
-    const landingPage = opt.landing || 'https://example.com';
+    const landingPage = opt.landing || 'https://google.com';
     const schema = opt.secure ? 'https' : 'http';
     const publicServer = opt.publicServer ? opt.publicServer : false;
 
     const dashPath = '/dashboard';
-    const dashFolder = __dirname + '/dashboard/';
+    const dashFolder = cwd() + '/dashboard/';
 
     const manager = new ClientManager(opt);
     const app = new Koa();
@@ -611,7 +609,11 @@ export default function (opt) {
         if ((ctx.query['new'] == undefined && reqpath === '/') || parts.length !== 2 || parts[1] == 'favicon.ico' || parts[1] == 'robots.txt') {
             // no new client request, send to landing page
             debug('Non handled request');
-            ctx.redirect(landingPage);
+            if (landingPage != undefined) {
+                ctx.redirect(landingPage);
+                return;
+            }
+            ctx.throw(404);
             return;
         }
 
@@ -712,7 +714,7 @@ export default function (opt) {
     let server;
     if (opt.secure) {
         // Do we have the file to run a secure setup?
-        if (!fs.existsSync(process.env.SSL_KEY) || !fs.existsSync(process.env.SSL_CERT)) {
+        if (!fs.accessSync(process.env.SSL_KEY) || !fs.existsSync(process.env.SSL_CERT)) {
             console.error('Bad or missing cert files');
             process.exit(1);
         }

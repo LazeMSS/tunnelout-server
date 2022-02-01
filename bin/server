@@ -2,18 +2,13 @@
 
 /*
  todo:
-    validate input:
-        port is int
-        address is an ip
-        max-sockets
-
     Add options:
-        usersfile location
-        x-api-key
+        USERSFILE=users.json - check fileAccess
+        API_KEY = x-api-key
         ADMIN_AUTH
         ALLOWUSRHOSTOVERRIDE
-        SSL_KEY
-        SSL_CERT
+        SSL_KEY - check fileAccess
+        SSL_CERT - check fileAccess
  */
 
 import "localenv";
@@ -27,31 +22,83 @@ const {
 } = require("../package");
 
 const program = new Command();
+const debug = require('debug')('tunnelout-server:bin');
 
-import log from "book";
 import Debug from "debug";
-
 import CreateServer from "../server";
 
-const debug = require('debug')('tunnelout-server:server');
+function stringIsAValidUrl(s) {
+    try {
+        new URL(s);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
 
+function consoleError(str) {
+    console.error('\x1b[1;37m%s\x1b[0m', 'Input error:', '\x1b[0;31m' + str + '\x1b[0m\n');
+}
+
+// Todo: validate cert files
+function fileAccess(strFile){
+    try {
+        fs.accessSync(strFile, fs.constants.R_OK);
+    } catch (err) {
+        if (err != undefined && 'code' in err && err.code == 'EACCES') {
+            return "Access failed: " + strFile;
+        } else {
+            return "File not found: " + strFile;
+        }
+    }
+    return true;
+}
 
 program
-    .usage("--port <number> <options>")
+    .usage("--port <number> [options]")
     .addOption(new Option("-p, --port [number]", "Listen on this port for outside requests aka public port").default(80).env("PORT").makeOptionMandatory())
     .addOption(new Option("-s, --secure", "Use this flag to indicate proxy over https").default(true).env("SECURE").makeOptionMandatory())
-    .addOption(new Option("-i, --address [number]", "IP address to bind to").default("0.0.0.0").env("IPADR"))
-    .addOption(new Option("-d, --domain [string]", "Specify the base domain name. This is optional if hosting tunnelOut from a regular example.com domain. This is required if hosting a tunnelOut server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.come").env("DOMAIN"))
-    .addOption(new Option("-m, --max-sockets [number]", "Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)").default(10).env("MAXSOCK"))
-    .addOption(new Option("-l, --landing [string]", "The landing page for redirect from root domain").default("http://google.com").env("LANDING"))
+    .addOption(new Option("-a, --address <number>", "IP address to bind to").default("0.0.0.0").env("IPADR"))
+    .addOption(new Option("-d, --domain <string>", "Specify the base domain name. This is optional if hosting tunnelOut from a regular example.com domain. This is required if hosting a tunnelOut server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.com").env("DOMAIN"))
+    .addOption(new Option("-m, --max-sockets <number>", "Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)").default(10).env("MAXSOCK"))
+    .addOption(new Option("-l, --landing <string>", "The landing page for redirect from root domain").default("http://google.com").env("LANDING"))
     .addOption(new Option("-p, --public-server", "Allow anyone to connect, if not set the client has to provide a valid user key in x-user-key header").default(false).env("PUBLIC"))
-    .addOption(new Option("-c, --clientvalid [string]", "Client agent string to validate against").default("tunnelout").env("CLIENTVALID"))
+    .addOption(new Option("-c, --clientvalid <string>", "Client agent string to validate against").default("tunnelout").env("CLIENTVALID"))
     .version(version);
 program.parse(process.argv);
 const options = program.opts();
 debug("Server started with the following options:");
 debug(options);
+debug("ENV:");
+debug(process.env);
 
+options.port = Number(options.port);
+if (isNaN(options.port)) {
+    consoleError('Invalid argument: "port" must be a number');
+    program.help();
+}
+if (options.maxSockets != undefined){
+    options.maxSockets = Number(options.maxSockets);
+    if (isNaN(options.maxSockets) || options.maxSockets <= 0) {
+        consoleError('Invalid argument: "max-sockets" must be a positive number');
+        program.help();
+    }
+}
+
+// check host
+if (options.landing != undefined && !stringIsAValidUrl(options.landing)) {
+    consoleError('Invalid argument: "landing" must be a valid URL');
+    program.help();
+}
+
+if (options.address != undefined && options.address != "localhost"){
+    if (/^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$/.test(options.address) == false) {
+        consoleError('Invalid argument: "address" must be a valid IPv4');
+        program.help();
+    }
+}
+
+// Build the main server
 const server = CreateServer({
     max_tcp_sockets: options.maxSockets,
     secure: options.secure,
@@ -62,7 +109,7 @@ const server = CreateServer({
 });
 
 server.listen(options.port, options.address, () => {
-    debug("server listening on port: %d", server.address().port);
+    debug("Server listening on %s:%d", server.address().address,server.address().port);
 });
 
 process.on("SIGINT", () => {
@@ -74,9 +121,9 @@ process.on("SIGTERM", () => {
 });
 
 process.on("uncaughtException", (err) => {
-    log.error(err);
+    console.error(err);
 });
 
 process.on("unhandledRejection", (reason) => {
-    log.error(reason);
+    console.error(reason);
 });

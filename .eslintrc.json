@@ -12,7 +12,7 @@
     "plugins": ["prettier"],
     "rules": {
         "prettier/prettier": "error",
-        "no-console": "warn",
+        "no-console": "off",
         "quotes": ["error", "single", { "avoidEscape": true }],
         "arrow-body-style": "off",
         "prefer-arrow-callback": "off",
