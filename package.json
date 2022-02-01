@@ -21,7 +21,10 @@
     "tldjs": "2.3.1"
   },
   "scripts": {
-    "start": "node -r esm ./bin/server",
-    "dev": "node-dev bin/server --port 3000"
+    "pr:check": "prettier --check --ignore-unknown .",
+    "pr:write": "prettier --write --ignore-unknown .",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "start" : "node -r esm ./bin/server"
   }
 }
