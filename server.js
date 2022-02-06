@@ -85,10 +85,10 @@ export default function (opt) {
 
     function doWeHaveClientsList() {
         if (clientsFile !== undefined && clientsFile != '') {
-            debug("doWeHaveClientsList: no client found");
+            debug('doWeHaveClientsList: clients file specified: %s', clientsFile);
             return true;
         }
-        debug("doWeHaveClientsList: no client list found");
+        debug('doWeHaveClientsList: No clients file specified');
         return false;
     }
 
@@ -98,35 +98,42 @@ export default function (opt) {
         }
 
         if (!Object.keys(clientsList).length) {
+            debug('getClientFromClientsList: No clients found - loading the file...');
             loadClients();
         }
 
         if (Object.prototype.hasOwnProperty.call(clientsList, clientID) || (Array.isArray(clientsList) && clientsList.includes(clientID))) {
-            debug("getClientFromClientsList found: %s",clientsList[clientID])
+            debug("getClientFromClientsList found clients: %s",clientsList[clientID])
             return clientsList[clientID];
         }
-        return false;
+        debug('getClientFromClientsList: Unable to find client: %s', clientID);
+        return null;
     }
 
     function loadClients() {
-        if (doWeHaveClientsList()) {
-            // Do we have the file
-            if (!fs.existsSync(clientsFile)) {
-                console.error('"%s" file not found', clientsFile);
-                process.exit(1);
-                return false;
-            }
-            //try read the file
-            try {
-                let data = fs.readFileSync(clientsFile);
-                clientsList = JSON.parse(data);
-            } catch (err) {
-                console.error('Unable to read/parse the clients file');
-                process.exit(1);
-                return false;
-            }
-            debug('ClientsList read, found: %s entries', Object.keys(clientsList).length);
+        if (!doWeHaveClientsList()) {
+            return false;
         }
+
+        // Do we have the file
+        if (!fs.existsSync(clientsFile)) {
+            console.error('"%s" file not found', clientsFile);
+            process.exit(1);
+            return false;
+        }
+
+        //try read the file
+        try {
+            let data = fs.readFileSync(clientsFile);
+            clientsList = JSON.parse(data);
+        } catch (err) {
+            console.error('Unable to read/parse the clients file: %s',err);
+            process.exit(1);
+            return false;
+        }
+
+        debug('loadClients: clientsFile read, found: %s entries', Object.keys(clientsList).length);
+        return true;
     }
 
     function writeClients() {
@@ -143,20 +150,19 @@ export default function (opt) {
             clientHKey = ctx.request.headers['x-client-key'];
         }
 
-        // íf dont have anything to validate the agent against then we will return true on a public else false
+        // íf dont have anything to validate the agent against then we will return true on a public serveer else false aka the value of publicserver
         if (clientHKey == null || !doWeHaveClientsList()) {
-            debug('No way to auth - public server: %s', publicServer);
+            debug('checkClientHeaderLogin: No way to auth - public server: %s', publicServer);
             return publicServer;
         }
 
         let clientHost = getClientFromClientsList(clientHKey);
         if (clientHost == null) {
-            debug('Client "%s" not found - failure, Client IP: %s', clientHKey, ctx.request.ip);
-            debug('Auth failed - public server: %s', publicServer);
+            debug('checkClientHeaderLogin: Client "%s" not found - failure. Client IP: %s, public server: %s', clientHKey, ctx.request.ip, publicServer);
             return publicServer;
         }
 
-        debug('Client approved - success, Client IP: %s, public server: %s', ctx.request.ip, publicServer);
+        debug('checkClientHeaderLogin: Client approved - success, Client IP: %s, public server: %s', ctx.request.ip, publicServer);
         return true;
     }
 
@@ -171,10 +177,10 @@ export default function (opt) {
             keyChk = ctx.request.headers['authorization'].replace('Bearer ', '');
         }
         if (keyChk != null && apiKey !== undefined && apiKey != '' && apiKey != 'false' && keyChk == apiKey) {
-            debug('API auth: APPROVED');
+            debug('apiKeyCheck: API auth: APPROVED');
             return true;
         }
-        debug('API auth: FAILED');
+        debug('apiKeyCheck: API auth: FAILED');
         return false;
     }
 
@@ -189,7 +195,7 @@ export default function (opt) {
 
         // Do we have the file requested?
         if (!fs.existsSync(filename)) {
-            debug(filename + ' not found on server!');
+            debug('apiKeyCheck' + filename + ' not found on server!');
             ctx.throw(404);
             return;
         }
@@ -218,10 +224,12 @@ export default function (opt) {
     // web Auth check for a user
     function authThis(authval, user, pass) {
         if (authval == '' || authval == undefined) {
+            debug('authThis: no authVal/header found');
             return false;
         }
         let tmp = authval.split(' ');
         if (tmp.length <= 1) {
+            debug('authThis: invalid authVal/header');
             return false;
         }
         let buf = Buffer.from(tmp[1], 'base64');
@@ -230,11 +238,12 @@ export default function (opt) {
         if (plaintxt[0] == user && plaintxt[1] == pass) {
             return true;
         }
+        debug('authThis: pass/user did not match');
         return false;
     }
 
     function buildAuthRequest(ctx) {
-        debug('Auth request started');
+        debug('buildAuthRequest: Auth request started');
         ctx.throw(401, 'Unauthorized ');
         ctx.set('WWW-Authenticate', 'Basic realm="tunnelOut"');
         return false;
@@ -242,68 +251,69 @@ export default function (opt) {
 
     // Admin auth
     function adminAuthCheck(ctx, promptLogin) {
-        debug('Admin AUTH: started');
+        debug('adminAuthCheck: started');
 
         // No auth header - then ask for auth
         if (!('authorization' in ctx.request.headers)) {
             if (promptLogin) {
                 buildAuthRequest(ctx);
             }
+            debug('adminAuthCheck: missing authorization header');
             return false;
         }
 
         // Do we have basic auth
         if (dashboardUser === undefined || dashboardUser === false || dashboardPass === undefined || dashboardPass === false) {
-            debug('Admin AUTH: missing enviroment');
+            debug('adminAuthCheck: missing enviroment');
             return false;
         }
 
         // check admin auth
         if (authThis(ctx.request.headers['authorization'], dashboardUser, dashboardPass) == false) {
-            debug('Admin AUTH: failed');
             if (promptLogin) {
                 buildAuthRequest(ctx);
             }
             return false;
         }
 
-        debug('Admin Auth approved');
+        debug('adminAuthCheck: Admin Auth approved');
         ctx.cookies.set('authType', 'admin', { expires: 0, httpOnly: false });
         return true;
     }
 
     // Auth a basic client
     function clientAuth(client, ctx) {
-        debug('Client AUTH: started');
+        debug('clientAuth: started');
 
         // No auth header - then ask for auth
         if (!('authorization' in ctx.request.headers)) {
+            debug('clientAuth: missing authorization header');
             buildAuthRequest(ctx);
             return false;
         }
 
         // Admin is always allowed - but don't prompt yet - we will try as client
         if (adminAuthCheck(ctx, false)) {
-            debug('Client AUTH: approved as admin');
+            debug('clientAuth: approved as admin');
             return true;
         }
 
         let authData = client.getAuthInfo();
         // Nothing to validate against
         if (authData === null) {
-            debug('Client AUTH: No auth data found');
+            debug('clientAuth: not auth data found');
             ctx.throw(409);
             return false;
         }
 
         // No auth headers sent the lets ask
         if (authThis(ctx.request.headers['authorization'], authData.usr, authData.pass) == false) {
-            debug('Client AUTH: Failed');
+            debug('clientAuth: Failed');
             buildAuthRequest(ctx);
             return false;
         }
 
-        debug('Client AUTH: auth approved');
+        debug('clientAuth: auth approved');
         ctx.cookies.set('authType', 'client', { expires: 0, httpOnly: false });
         return true;
     }
@@ -320,7 +330,7 @@ export default function (opt) {
 
         // Failed to find the client - not connected the we fail
         if (!client) {
-            debug(ctx.params.clientid + ' not found!');
+            debug('client Dash: ' + ctx.params.clientid + ' not found!');
             ctx.throw(404);
             return;
         }
@@ -334,13 +344,14 @@ export default function (opt) {
         if (0 in ctx.params && ctx.params[0] != '') {
             file = ctx.params[0];
         }
+        debug('client Dash: %s',file);
         webserveFile(ctx, file);
     });
 
     // redirect to client dashboard if just requesting /dash/c/xxxxx without trailing slash
     router.get(dashPath + '/c/(.*)', async (ctx) => {
         if (!(0 in ctx.params) || ctx.params[0] == '') {
-            debug('No client requested!');
+            debug('client Dash: No client requested!');
             ctx.throw(404);
             return;
         }
@@ -364,17 +375,20 @@ export default function (opt) {
         if (0 in ctx.params && ctx.params[0] != '') {
             file = ctx.params[0];
         }
+        debug('admin Dash: %s',file);
         webserveFile(ctx, file);
     });
 
     /* [CLIENTS API ENDPOINT] ------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
     // Reload the client file
-    router.get('/api/S/reload', async (ctx) => {
+    router.get('/api/clients/reload', async (ctx) => {
         if (!doWeHaveClientsList()) {
             ctx.throw(404);
             return;
         }
+
+        debug('API clients reload');
 
         // Api header key is the first one - if that fails we can use the basic auth stuff
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
@@ -405,9 +419,9 @@ export default function (opt) {
         }
 
         const clientID = path.basename(ctx.params.client);
+        debug('API clients add: %s', clientID);
 
         loadClients();
-
         let bClientAdded = false;
         if (Array.isArray(clientsList)) {
             clientsList.push(clientID);
@@ -434,6 +448,7 @@ export default function (opt) {
         }
 
         const clientid = path.basename(ctx.params.clientid);
+        debug('API clients delete: %s', clientID);
 
         // Api header key is the first one - if that fails we can use the basic auth stuff
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
@@ -457,6 +472,8 @@ export default function (opt) {
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
             return;
         }
+
+        debug('API status called');
 
         // Get the stats objects and build the output
         const clients = manager.clients;
@@ -545,6 +562,8 @@ export default function (opt) {
             return false;
         }
 
+        debug('API tunnel status: %s', clientID);
+
         // Let send the data
         ctx.body = {
             basic: {
@@ -575,6 +594,8 @@ export default function (opt) {
         if (!apiKeyCheck(ctx) && !clientAuth(client, ctx)) {
             return false;
         }
+
+        debug('API tunnel disconnect: %s', clientID);
 
         manager.disconnect(clientId);
         ctx.body = 'Client "' + clientId + '" disconnected';
@@ -626,11 +647,12 @@ export default function (opt) {
             return;
         }
 
-        // Valid client/user
+        // Validate client agent
         let clientAgent = 'unknown';
         if ('user-agent' in ctx.request.headers) {
             clientAgent = ctx.request.headers['user-agent'];
         }
+
         if (clientAgentValid !== false && clientAgent.indexOf(clientAgentValid) == -1) {
             debug('Invalid agent: %s != %s', clientAgent, clientAgentValid);
             ctx.status = 307;
