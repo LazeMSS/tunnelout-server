@@ -13,6 +13,8 @@
             block/delete client in client list
 
     Client:
+        allow setting the client agent/client_name
+        naming scheme: user = agent
         prefix env with to_
         make evn fit arguments naming like in server
         check all env options
@@ -163,7 +165,7 @@ export default function (opt) {
             return publicServer;
         }
 
-        debug('checkClientHeaderLogin: client "%s" approved - success, Client IP: %s, public server: %s', clientHKey, ctx.request.ip, publicServer);
+        debug('checkClientHeaderLogin: client "%s" approved. Client IP: %s, public server: %s', clientHKey, ctx.request.ip, publicServer);
         return true;
     }
 
@@ -185,6 +187,11 @@ export default function (opt) {
         return false;
     }
 
+    function customErrorWeb(ctx, code) {
+        ctx.status = code;
+        webserveFile(ctx, code + '.html');
+    }
+
     /* [WEB DASHBOARD] ----------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
     /* basic webserver*/
@@ -197,7 +204,7 @@ export default function (opt) {
         // Do we have the file requested?
         if (!fs.existsSync(filename)) {
             debug('webserveFile: ' + filename + ' not found on server!');
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -245,8 +252,8 @@ export default function (opt) {
 
     function buildAuthRequest(ctx) {
         debug('buildAuthRequest: Auth request started');
-        ctx.throw(401, 'Unauthorized ');
         ctx.set('WWW-Authenticate', 'Basic realm="tunnelOut"');
+        customErrorWeb(ctx, 401);
         return false;
     }
 
@@ -303,7 +310,7 @@ export default function (opt) {
         // Nothing to validate against
         if (authData === null) {
             debug('clientAuth: not auth data found');
-            ctx.throw(409);
+            customErrorWeb(ctx, 404);
             return false;
         }
 
@@ -332,7 +339,7 @@ export default function (opt) {
         // Failed to find the client - not connected the we fail
         if (!client) {
             debug('client Dash: ' + ctx.params.clientid + ' not found!');
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -345,7 +352,7 @@ export default function (opt) {
         if (0 in ctx.params && ctx.params[0] != '') {
             file = ctx.params[0];
         }
-        debug('Web: client Dash: %s', file);
+        debug('Web - client Dash: %s', file);
         webserveFile(ctx, file);
     });
 
@@ -353,7 +360,7 @@ export default function (opt) {
     router.get(dashPath + '/c/(.*)', async (ctx) => {
         if (!(0 in ctx.params) || ctx.params[0] == '') {
             debug('client Dash: No client requested!');
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
         // Redirect with a trailing slash
@@ -376,7 +383,7 @@ export default function (opt) {
         if (0 in ctx.params && ctx.params[0] != '') {
             file = ctx.params[0];
         }
-        debug('Web: admin Dash: %s', file);
+        debug('Web - admin Dash: %s', file);
         webserveFile(ctx, file);
     });
 
@@ -386,7 +393,7 @@ export default function (opt) {
     router.get('/api/clients/reload', async (ctx) => {
         debug('API clients reload');
         if (!doWeHaveClientsList()) {
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -410,7 +417,7 @@ export default function (opt) {
     router.post('/api/clients/:client', async (ctx) => {
         debug('API clients add: %s', ctx.params.client);
         if (!doWeHaveClientsList()) {
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -445,7 +452,7 @@ export default function (opt) {
     router.delete('/api/clients/:clientid', async (ctx) => {
         debug('API clients delete: %s', ctx.params.clientid);
         if (!doWeHaveClientsList()) {
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -553,7 +560,7 @@ export default function (opt) {
         const client = manager.getClient(clientID);
         // Client not found
         if (!client) {
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -585,7 +592,7 @@ export default function (opt) {
         const client = manager.getClient(clientID);
         // Client not found
         if (!client) {
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -605,12 +612,10 @@ export default function (opt) {
             await next();
         } catch (err) {
             if (401 == err.status) {
-                ctx.status = 401;
                 ctx.set('WWW-Authenticate', 'Basic');
-                webserveFile(ctx, '401.html');
+                customErrorWeb(ctx, 401);
             } else if (404 == err.status) {
-                ctx.status = 404;
-                webserveFile(ctx, '404.html');
+                customErrorWeb(ctx, 404);
             } else {
                 throw err;
             }
@@ -621,6 +626,7 @@ export default function (opt) {
     app.use(router.allowedMethods());
 
     /* [NEW TUNNEL CREATION ENDPOINT] -------------------------------------------------------------------------------------------------------------------------------------------- */
+
     // root endpoint for new/random clients
     app.use(async (ctx, next) => {
         const reqpath = ctx.request.path;
@@ -641,7 +647,7 @@ export default function (opt) {
                 ctx.redirect(landingPage);
                 return;
             }
-            ctx.throw(404);
+            customErrorWeb(ctx, 404);
             return;
         }
 
@@ -651,7 +657,7 @@ export default function (opt) {
             clientAgent = ctx.request.headers['user-agent'];
         }
 
-        if (clientAgentValid !== false && clientAgent.indexOf(clientAgentValid) == -1) {
+        if (clientAgentValid !== false && clientAgent.indexOf(clientAgentValid) !== 0) {
             debug('New endpoint: Invalid agent %s != %s', clientAgent, clientAgentValid);
             ctx.status = 307;
             ctx.set('location', landingPage);
@@ -659,7 +665,7 @@ export default function (opt) {
             return;
         }
 
-        // Check against client table
+        // Check against client list and headers + public server or not
         if (!checkClientHeaderLogin(ctx)) {
             ctx.status = 403;
             ctx.body = { errorMsg: 'Invalid or missing x-client-key header' };
@@ -684,10 +690,9 @@ export default function (opt) {
             // limit requested hostnames to 63 characters
             if (!/^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqHostname)) {
                 debug('New endpoint: Invalid subdomain requested, "%s"', reqHostname);
-                const msg = 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.';
                 ctx.status = 403;
                 ctx.body = {
-                    message: msg
+                    errorMsg: 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.'
                 };
                 return;
             }
@@ -770,17 +775,27 @@ export default function (opt) {
 
     // main data handling between client and server
     server.on('request', (req, res) => {
+        debug('Client request');
         // without a hostname, we won"t know who the request is for
         const hostname = req.headers.host;
         if (!hostname) {
+            debug('Client request: missing host name');
             res.statusCode = 400;
             res.end('Host header is required');
+            return;
+        }
+
+        // main request - no need to do anymore
+        if (hostname == opt.domain) {
+            debug('Client request: "%s" is the main host request - redirecting to main handler', hostname);
+            appCallback(req, res);
             return;
         }
 
         // If no client id found the send it to the other routes
         const clientId = GetClientIdFromHostname(hostname);
         if (!clientId) {
+            debug('Client request: "%s" host not found  - redirecting to main handler', hostname);
             appCallback(req, res);
             return;
         }
@@ -788,8 +803,9 @@ export default function (opt) {
         // Get client data/info
         const client = manager.getClient(clientId);
         if (!client) {
+            debug('Client request: "%s" client not found!', clientId);
             res.statusCode = 404;
-            res.end('404');
+            res.end(fs.readFileSync(dashFolder + '404.html'));
             return;
         }
 
@@ -799,12 +815,14 @@ export default function (opt) {
         if (authData != null) {
             // Can we auth?
             if (!('authorization' in req.headers) || authThis(req.headers['authorization'], authData.usr, authData.pass) == false) {
+                debug('Client request: auth missing!');
                 res.statusCode = 401;
                 res.setHeader('WWW-Authenticate', 'Basic realm="tunnelOut"');
                 res.end(fs.readFileSync(dashFolder + '401.html'));
                 return;
             }
         }
+        debug('Client request: %s:%s', clientId, req.url);
         client.handleRequest(req, res);
     });
 
