@@ -326,6 +326,20 @@ export default function (opt) {
         webserveFile(ctx, 'favicon.ico');
     });
 
+    // dash gfx
+    router.get(dashPath + '/gfx/(.*).png', async (ctx) => {
+        if (!(0 in ctx.params) || ctx.params[0] == '') {
+            customErrorWeb(ctx, 404);
+            return;
+        }
+        let file = '';
+        if (0 in ctx.params && ctx.params[0] != '') {
+            file = ctx.params[0] + '.png';
+        }
+        debug('Web - dash gfx: %s', file);
+        webserveFile(ctx, file);
+    });
+
     // client dashboard
     router.get(dashPath + '/c/:clientid/(.*)', async (ctx) => {
         // Lookup the client id
