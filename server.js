@@ -606,7 +606,7 @@ export default function (opt) {
         debug(ctx.body);
     });
 
-    // Error handler
+    /* [ERROR HANDLER/WRAPPER] --------------------------------------------------------------------------------------------------------------------------------------------------- */
     app.use(async (ctx, next) => {
         try {
             await next();
@@ -713,6 +713,12 @@ export default function (opt) {
             } else {
                 reqHostname = hri.random();
             }
+        }
+        // forbidden hostname
+        if (reqHostname.toLowerCase() == 'api') {
+            ctx.status = 403;
+            ctx.body = { errorMsg: '"api" is not allowed as hostname' };
+            return;
         }
 
         // Set basic auth if requested to do so
