@@ -74,6 +74,7 @@ export default function (opt) {
     const router = new Router();
 
     let clientsList = {};
+    let clientsListLoaded = false;
 
     /* [CLIENT LOGIN RELATED] ------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
@@ -97,13 +98,13 @@ export default function (opt) {
             return null;
         }
 
-        if (!Object.keys(clientsList).length) {
+        if (!clientsListLoaded) {
             debug('getClientFromClientsList: No clients found - loading the file...');
             loadClients();
         }
 
         if (Object.prototype.hasOwnProperty.call(clientsList, clientID) || (Array.isArray(clientsList) && clientsList.includes(clientID))) {
-            debug("getClientFromClientsList found clients: %s",clientsList[clientID])
+            debug('getClientFromClientsList: found client "%s"', clientsList[clientID]);
             return clientsList[clientID];
         }
         debug('getClientFromClientsList: Unable to find client: %s', clientID);
@@ -127,11 +128,11 @@ export default function (opt) {
             let data = fs.readFileSync(clientsFile);
             clientsList = JSON.parse(data);
         } catch (err) {
-            console.error('Unable to read/parse the clients file: %s',err);
+            console.error('Unable to read/parse the clients file: %s', err);
             process.exit(1);
             return false;
         }
-
+        clientsListLoaded = true;
         debug('loadClients: clientsFile read, found: %s entries', Object.keys(clientsList).length);
         return true;
     }
@@ -158,11 +159,11 @@ export default function (opt) {
 
         let clientHost = getClientFromClientsList(clientHKey);
         if (clientHost == null) {
-            debug('checkClientHeaderLogin: Client "%s" not found - failure. Client IP: %s, public server: %s', clientHKey, ctx.request.ip, publicServer);
+            debug('checkClientHeaderLogin: client "%s" not found/failed. Client IP: %s, public server: %s', clientHKey, ctx.request.ip, publicServer);
             return publicServer;
         }
 
-        debug('checkClientHeaderLogin: Client approved - success, Client IP: %s, public server: %s', ctx.request.ip, publicServer);
+        debug('checkClientHeaderLogin: client "%s" approved - success, Client IP: %s, public server: %s', clientHKey, ctx.request.ip, publicServer);
         return true;
     }
 
@@ -195,7 +196,7 @@ export default function (opt) {
 
         // Do we have the file requested?
         if (!fs.existsSync(filename)) {
-            debug('apiKeyCheck' + filename + ' not found on server!');
+            debug('webserveFile: ' + filename + ' not found on server!');
             ctx.throw(404);
             return;
         }
@@ -344,7 +345,7 @@ export default function (opt) {
         if (0 in ctx.params && ctx.params[0] != '') {
             file = ctx.params[0];
         }
-        debug('client Dash: %s',file);
+        debug('Web: client Dash: %s', file);
         webserveFile(ctx, file);
     });
 
@@ -375,7 +376,7 @@ export default function (opt) {
         if (0 in ctx.params && ctx.params[0] != '') {
             file = ctx.params[0];
         }
-        debug('admin Dash: %s',file);
+        debug('Web: admin Dash: %s', file);
         webserveFile(ctx, file);
     });
 
@@ -383,12 +384,11 @@ export default function (opt) {
 
     // Reload the client file
     router.get('/api/clients/reload', async (ctx) => {
+        debug('API clients reload');
         if (!doWeHaveClientsList()) {
             ctx.throw(404);
             return;
         }
-
-        debug('API clients reload');
 
         // Api header key is the first one - if that fails we can use the basic auth stuff
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
@@ -408,6 +408,7 @@ export default function (opt) {
 
     // Add client
     router.post('/api/clients/:client', async (ctx) => {
+        debug('API clients add: %s', ctx.params.client);
         if (!doWeHaveClientsList()) {
             ctx.throw(404);
             return;
@@ -417,9 +418,7 @@ export default function (opt) {
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
             return;
         }
-
         const clientID = path.basename(ctx.params.client);
-        debug('API clients add: %s', clientID);
 
         loadClients();
         let bClientAdded = false;
@@ -433,23 +432,24 @@ export default function (opt) {
         if (bClientAdded) {
             writeClients();
             ctx.body = 'Client "' + clientID + '" addedd';
+            debug('API clients added: %s', clientID);
         } else {
             ctx.throw(403, 'Bad Request');
             ctx.body = 'Client "' + clientID + '" NOT addedd';
+            debug('API clients failed to add: %s', clientID);
         }
         debug(ctx.body);
     });
 
     // delete client
     router.delete('/api/clients/:clientid', async (ctx) => {
+        debug('API clients delete: %s', ctx.params.clientid);
         if (!doWeHaveClientsList()) {
             ctx.throw(404);
             return;
         }
 
         const clientid = path.basename(ctx.params.clientid);
-        debug('API clients delete: %s', clientID);
-
         // Api header key is the first one - if that fails we can use the basic auth stuff
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
             return;
@@ -465,15 +465,14 @@ export default function (opt) {
         debug(ctx.body);
     });
 
-    /* [STATUS API ENDPOINTS] ---------------------------------------------------------------------------------------------------------------------------------------------------- */
+    /* [DASHBOARD/STATUS API ENDPOINTS] ---------------------------------------------------------------------------------------------------------------------------------------------------- */
     // Main status api
     router.get('/api/status', async (ctx) => {
+        debug('API status called');
         // Api header key is the first one - if that fails we can use the basic auth stuff
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
             return;
         }
-
-        debug('API status called');
 
         // Get the stats objects and build the output
         const clients = manager.clients;
@@ -549,8 +548,9 @@ export default function (opt) {
     // Get a tunnels status
     router.get('/api/tunnels/:id', async (ctx) => {
         // Lookup the client info
-        const clientId = ctx.params.id;
-        const client = manager.getClient(clientId);
+        const clientID = ctx.params.id;
+        debug('API tunnel status: %s', clientID);
+        const client = manager.getClient(clientID);
         // Client not found
         if (!client) {
             ctx.throw(404);
@@ -561,8 +561,6 @@ export default function (opt) {
         if (!apiKeyCheck(ctx) && !clientAuth(client, ctx)) {
             return false;
         }
-
-        debug('API tunnel status: %s', clientID);
 
         // Let send the data
         ctx.body = {
@@ -582,8 +580,9 @@ export default function (opt) {
 
     // Disconnect a tunnel
     router.delete('/api/tunnels/:id', async (ctx) => {
-        const clientId = ctx.params.id;
-        const client = manager.getClient(clientId);
+        const clientID = ctx.params.id;
+        debug('API tunnel disconnect: %s', clientID);
+        const client = manager.getClient(clientID);
         // Client not found
         if (!client) {
             ctx.throw(404);
@@ -595,10 +594,8 @@ export default function (opt) {
             return false;
         }
 
-        debug('API tunnel disconnect: %s', clientID);
-
-        manager.disconnect(clientId);
-        ctx.body = 'Client "' + clientId + '" disconnected';
+        manager.disconnect(clientID);
+        ctx.body = 'Client "' + clientID + '" disconnected';
         debug(ctx.body);
     });
 
@@ -627,6 +624,7 @@ export default function (opt) {
     // root endpoint for new/random clients
     app.use(async (ctx, next) => {
         const reqpath = ctx.request.path;
+        debug('New endpoint: %s', reqpath);
         const parts = reqpath.split('/');
 
         // Skip if forbidden
@@ -638,7 +636,7 @@ export default function (opt) {
         // Did we request a new endpoint or not
         if ((ctx.query['new'] == undefined && reqpath === '/') || parts.length !== 2 || parts[1] == 'favicon.ico' || parts[1] == 'robots.txt') {
             // no new client request, send to landing page
-            debug('Non handled request');
+            debug('New endpoint: Non handled request');
             if (landingPage != undefined) {
                 ctx.redirect(landingPage);
                 return;
@@ -654,7 +652,7 @@ export default function (opt) {
         }
 
         if (clientAgentValid !== false && clientAgent.indexOf(clientAgentValid) == -1) {
-            debug('Invalid agent: %s != %s', clientAgent, clientAgentValid);
+            debug('New endpoint: Invalid agent %s != %s', clientAgent, clientAgentValid);
             ctx.status = 307;
             ctx.set('location', landingPage);
             ctx.body = { errorMsg: 'Invalid client agent: ' + clientAgent };
@@ -685,7 +683,7 @@ export default function (opt) {
             reqHostname = parts[1];
             // limit requested hostnames to 63 characters
             if (!/^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqHostname)) {
-                debug('Invalid subdomain requested, "%s"', reqHostname);
+                debug('New endpoint: Invalid subdomain requested, "%s"', reqHostname);
                 const msg = 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.';
                 ctx.status = 403;
                 ctx.body = {
@@ -697,7 +695,7 @@ export default function (opt) {
             // Do we allow the user to override the hostnames from the file
             if (clientOverride === false) {
                 if (clientReqHostName !== null && reqHostname != clientReqHostName) {
-                    debug('Client requested "%s" - but we dont allow override, so serving "%s"', reqHostname, clientReqHostName);
+                    debug('New endpoint: Client requested "%s" - but we dont allow override, so serving "%s"', reqHostname, clientReqHostName);
                     reqHostname = clientReqHostName;
                 }
             }
@@ -705,9 +703,9 @@ export default function (opt) {
 
         // No classic name found
         if (reqHostname == null) {
-            if (clientReqHostName != null){
+            if (clientReqHostName != null) {
                 reqHostname = clientReqHostName;
-            }else{
+            } else {
                 reqHostname = hri.random();
             }
         }
@@ -727,9 +725,9 @@ export default function (opt) {
 
         // Status
         if (reqHostname == info.id) {
-            debug('Made new client with requested id "%s"', info.id);
+            debug('New endpoint: Made new client with requested id: "%s"', info.id);
         } else {
-            debug('Made new random client with id "%s"', info.id);
+            debug('New endpoint: Made new client with random id: "%s"', info.id);
         }
 
         // Set server header - the client validates against this
