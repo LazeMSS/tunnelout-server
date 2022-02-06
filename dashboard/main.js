@@ -63,7 +63,7 @@ $(function () {
     headerModal = new bootstrap.Modal(document.getElementById('headerinspect'));
     confirmModal = new bootstrap.Modal(document.getElementById('confirmDialog'));
 
-    if (cookie == 'user') {
+    if (cookie == 'client') {
         $('a.navbar-brand').on('click', function (event) {
             event.stopImmediatePropagation();
             event.preventDefault();
@@ -81,7 +81,7 @@ $(function () {
     }
 
     // Security is handle by backend - this is just for easy display
-    if (cookie == 'user' || lastPath != 'dashboard') {
+    if (cookie == 'client' || lastPath != 'dashboard') {
         loadClient(lastPath, false);
     } else {
         loadAdmin(false);
@@ -164,13 +164,13 @@ function loadClient(lastPath, pop) {
         if (pop) {
             history.pushState('/dashboard/c/' + lastPath, null, '/dashboard/c/' + lastPath + '/');
         }
-        buildUserDash(data);
+        buildClientDash(data);
     });
 
     // server status automatic refresh
     if (clientTimer == null) {
         clientTimer = setInterval(function () {
-            fetchData('/api/tunnels/' + lastPath, buildUserDash);
+            fetchData('/api/tunnels/' + lastPath, buildClientDash);
         }, 30000);
     }
 }
@@ -572,7 +572,7 @@ function buildUlItems(obj, level = 0, parent = null) {
     return strReturn;
 }
 
-function buildUserDash(data) {
+function buildClientDash(data) {
     $('#serverdashboard').addClass('d-none');
     $('#mainheader').text(data.basic.id);
     buildDashCards(data, 'clientdashboard');

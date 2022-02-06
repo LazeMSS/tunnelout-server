@@ -1,8 +1,8 @@
 /*
  TODO:
-    search todo :)
-
     Logo/gfx
+
+    Update README.md
 
     Dashboard:
         Favicon
@@ -18,11 +18,8 @@
 
         local https problems
 
-    Sever generic:
-        seperate routes in to "modules" with  dashboard, api, auth each file
-            https://stackoverflow.com/questions/30285683/how-can-i-split-my-koa-routes-into-separate-files/39301972
-
-        Better post options for user (handle body) in apis
+    Server generic:
+        Better post options for client (handle body) in apis
 
  */
 import Koa from 'koa';
@@ -301,7 +298,7 @@ export default function (opt) {
         }
 
         debug('Client AUTH: auth approved');
-        ctx.cookies.set('authType', 'user', { expires: 0, httpOnly: false });
+        ctx.cookies.set('authType', 'client', { expires: 0, httpOnly: false });
         return true;
     }
 
