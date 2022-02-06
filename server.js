@@ -1,13 +1,8 @@
 /*
  TODO:
-    Test all api endpoints
-
-    Logo/gfx
-
     Update README.md
 
     Dashboard:
-        Favicon
         admin:
             client editor/display
             block/delete client in client list
