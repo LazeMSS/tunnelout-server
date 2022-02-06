@@ -606,6 +606,12 @@ export default function (opt) {
         debug(ctx.body);
     });
 
+    router.get('/api(.*)', async (ctx) => {
+        debug('Invalid API endpoint');
+        customErrorWeb(ctx, 404);
+        return;
+    });
+
     /* [ERROR HANDLER/WRAPPER] --------------------------------------------------------------------------------------------------------------------------------------------------- */
     app.use(async (ctx, next) => {
         try {
