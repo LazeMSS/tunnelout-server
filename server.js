@@ -1,5 +1,7 @@
 /*
  TODO:
+    Test all api endpoints
+
     Logo/gfx
 
     Update README.md
@@ -83,8 +85,10 @@ export default function (opt) {
 
     function doWeHaveClientsList() {
         if (clientsFile !== undefined && clientsFile != '') {
+            debug("doWeHaveClientsList: no client found");
             return true;
         }
+        debug("doWeHaveClientsList: no client list found");
         return false;
     }
 
@@ -92,11 +96,13 @@ export default function (opt) {
         if (!doWeHaveClientsList()) {
             return null;
         }
+
         if (!Object.keys(clientsList).length) {
             loadClients();
         }
 
         if (Object.prototype.hasOwnProperty.call(clientsList, clientID) || (Array.isArray(clientsList) && clientsList.includes(clientID))) {
+            debug("getClientFromClientsList found: %s",clientsList[clientID])
             return clientsList[clientID];
         }
         return false;
@@ -150,7 +156,7 @@ export default function (opt) {
             return publicServer;
         }
 
-        debug('Client approved - success, Client IP: %s', ctx.request.ip);
+        debug('Client approved - success, Client IP: %s, public server: %s', ctx.request.ip, publicServer);
         return true;
     }
 
@@ -675,8 +681,13 @@ export default function (opt) {
             }
         }
 
+        // No classic name found
         if (reqHostname == null) {
-            reqHostname = hri.random();
+            if (clientReqHostName != null){
+                reqHostname = clientReqHostName;
+            }else{
+                reqHostname = hri.random();
+            }
         }
 
         // Set basic auth if requested to do so

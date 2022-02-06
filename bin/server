@@ -63,17 +63,17 @@ program
     .addOption(new Option('-a, --ipaddress <number>', 'IP address to bind to').default('0.0.0.0').env('TO_IPADDRESS'))
     .addOption(new Option('-d, --domain <string>','Specify the base domain name. This is optional if hosting tunnelOut from a regular example.com domain. This is required if hosting a tunnelOut server from a subdomain (i.e. subdomain.example.dom where clients will be client-app.subdomain.example.com').env('TO_DOMAIN'))
     .addOption(new Option('-m, --max-sockets <number>', 'Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)').default(10).env('TO_MAX_SOCKETS'))
-    .addOption(new Option('-l, --landing <string>', 'The landing page for redirect from root domain').default('https://google.com').env('TO_LANDING'))
+    .addOption(new Option('-l, --landing <string>', 'The landing page to redirect from root domain access').default('https://google.com').env('TO_LANDING'))
     .addOption(new Option('-c, --clientvalid <string>', 'Client agent string to validate against').default('tunnelout').env('TO_CLIENTVALID'))
     .addOption(new Option('-i, --insecure', 'Use this flag to indicate tunnel over insecure http').default(false).env('TO_INSECURE'))
-    .addOption(new Option('-ps, --public-server','If set it allows anyone to connect else the client has to provide a valid client key in then x-client-key header - (client keys are stored in the --clients-file)').default(false).env('TO_PUBLIC_SERVER'))
+    .addOption(new Option('-ps, --public-server','If set it allows anyone to connect. If set the client has to provide a valid client key in then x-client-key header - (client keys are stored in the --clients-file)').default(false).env('TO_PUBLIC_SERVER'))
     .addOption(new Option('-pf, --key-file <path>', 'Path to certificate key file (privkey.pem) for the HTTPS server. Required when running secure server').env('TO_KEY_FILE'))
     .addOption(new Option('-cf, --cert-file <path>', 'Path to certificate chain/cert file (fullchain.pem) for the HTTPS server. Required when running secure server').env('TO_CERT_FILE'))
     .addOption(new Option('-cl, --clients-file <path>', 'Path to clients list (JSON format) file containing client name and their "reserved" host name').env('TO_CLIENTS_FILE'))
     .addOption(new Option('-co, --client-override', 'Set this to allow the client to override its assigned subdomain when using the clients file method').default(false).env('TO_CLIENT_OVERRIDE'))
-    .addOption(new Option('-ak, --apikey <string>', 'The value that must be sent in the x-api-key/authorization header of the API request to be validated - default is false disabling the API.').default(false).env('TO_APIKEY'))
-    .addOption(new Option('-du, --dashboard-user <string>', 'The username used for authorization to access the admin dashboard').env('TO_DASHBOARD_USER'))
-    .addOption(new Option('-dp, --dashboard-pass <string>', 'The password used for authorization to access the admin dashboard').env('TO_DASHBOARD_PASS'))
+    .addOption(new Option('-ak, --apikey <string>', 'The value that must be sent in the x-api-key/authorization header of the API request to be validated. False will disable the API.').default(false).env('TO_APIKEY'))
+    .addOption(new Option('-du, --dashboard-user <string>', 'The username used for authorization to access the main admin dashboard').env('TO_DASHBOARD_USER'))
+    .addOption(new Option('-dp, --dashboard-pass <string>', 'The password used for authorization to access the main admin dashboard').env('TO_DASHBOARD_PASS'))
     .version(version);
 program.parse(process.argv);
 const options = program.opts();
