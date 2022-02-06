@@ -1,28 +1,36 @@
 /*
  TODO:
     search todo :)
-    Naming syntax: client, server, agent ie
 
-    move all process.env out from process.env and into options on bin/server
-    Better post options for user (handle body) in apis
-    remove old way of requesting new tunnel - simplified to one way - also change in client
+    Logo/gfx
 
-    seperate routes in to "modules" with  dashboard, api, auth each file
-        https://stackoverflow.com/questions/30285683/how-can-i-split-my-koa-routes-into-separate-files/39301972
+    Dashboard:
+        Favicon
+        admin:
+            client editor/display
+            block/delete client in client list
 
-    cleanup of nodes modules
+    Client:
+        prefix env with to_
+        make evn fit arguments naming like in server
+        check all env options
+        env bool check like server
 
-    tunnelclient:
         local https problems
+
+    Sever generic:
+        seperate routes in to "modules" with  dashboard, api, auth each file
+            https://stackoverflow.com/questions/30285683/how-can-i-split-my-koa-routes-into-separate-files/39301972
+
+        Better post options for user (handle body) in apis
 
  */
 import Koa from 'koa';
+import Router from 'koa-router';
 import tldjs from 'tldjs';
 import http from 'http';
 import url from 'url';
 import { hri } from 'human-readable-ids';
-import Router from 'koa-router';
-
 import https from 'https';
 import fs from 'fs';
 import { cwd } from 'process';
@@ -37,23 +45,38 @@ const os = require('os');
 export default function (opt) {
     opt = opt || {};
 
-    const clientAgentValid = opt.clientValid || 'tunnelout';
-
-    const validHosts = opt.domain ? [opt.domain] : undefined;
-    const myTldjs = tldjs.fromUserSettings({ validHosts });
     const landingPage = opt.landing || 'https://google.com';
-    const schema = opt.secure ? 'https' : 'http';
-    const publicServer = opt.publicServer ? opt.publicServer : false;
+    const clientAgentValid = opt.clientvalid || 'tunnelout';
+    const validHosts = opt.domain ? [opt.domain] : undefined;
+    const insecure = opt.insecure || false;
+    const schema = insecure ? 'http' : 'https';
+    const publicServer = opt.publicServer || false;
+    const clientOverride = opt.clientOverride || false;
+    const apiKey = opt.apikey || false;
 
+    const keyFile = opt.keyFile;
+    const certFile = opt.certFile;
+    const clientsFile = opt.clientsFile;
+
+    const myTldjs = tldjs.fromUserSettings({ validHosts });
     const dashPath = '/dashboard';
     const dashFolder = cwd() + '/dashboard/';
+    const dashboardUser = opt.dashboardUser;
+    const dashboardPass = opt.dashboardPass;
 
-    const manager = new ClientManager(opt);
+    const manager = new ClientManager({
+        maxSockets: opt.maxSockets,
+        secure: !insecure,
+        keyFile: keyFile,
+        certFile: certFile
+    });
+
     const app = new Koa();
     const router = new Router();
-    let UsersList = {};
 
-    /* [USER LOGIN RELATED] ------------------------------------------------------------------------------------------------------------------------------------------------------ */
+    let clientsList = {};
+
+    /* [CLIENT LOGIN RELATED] ------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
     // Lookup a hostname based on the client id
     function GetClientIdFromHostname(hostname) {
@@ -61,83 +84,77 @@ export default function (opt) {
         return myTldjs.getSubdomain(hostsplit[0]);
     }
 
-    function doWeHaveUsersEnv() {
-        if (process.env.USERSFILE !== undefined && process.env.USERSFILE != '') {
+    function doWeHaveClientsList() {
+        if (clientsFile !== undefined && clientsFile != '') {
             return true;
         }
         return false;
     }
 
-    // Get a users hostname from the users file
-    function getUserHostName(ctx) {
-        if (doWeHaveUsersEnv() && ctx.request.headers['x-user-key'] !== undefined) {
-            const usrid = ctx.request.headers['x-user-key'];
-            if (Object.prototype.hasOwnProperty.call(UsersList, usrid)) {
-                return UsersList[usrid];
-            }
+    function getClientFromClientsList(clientID) {
+        if (!doWeHaveClientsList()) {
+            return null;
         }
-        return null;
+        if (!Object.keys(clientsList).length) {
+            loadClients();
+        }
+
+        if (Object.prototype.hasOwnProperty.call(clientsList, clientID) || (Array.isArray(clientsList) && clientsList.includes(clientID))) {
+            return clientsList[clientID];
+        }
+        return false;
     }
 
-    // Reload users from the users.json file
-    function loadUsers() {
-        // Get users
-        if (doWeHaveUsersEnv()) {
+    function loadClients() {
+        if (doWeHaveClientsList()) {
             // Do we have the file
-            if (!fs.existsSync(process.env.USERSFILE)) {
-                console.error('"%s" file not found', process.env.USERSFILE);
+            if (!fs.existsSync(clientsFile)) {
+                console.error('"%s" file not found', clientsFile);
                 process.exit(1);
                 return false;
             }
             //try read the file
             try {
-                let data = fs.readFileSync(process.env.USERSFILE);
-                UsersList = JSON.parse(data);
+                let data = fs.readFileSync(clientsFile);
+                clientsList = JSON.parse(data);
             } catch (err) {
-                console.error('Unable to read/parse the users file');
+                console.error('Unable to read/parse the clients file');
                 process.exit(1);
                 return false;
             }
-            debug('Userlist read, found: %s entries', Object.keys(UsersList).length);
+            debug('ClientsList read, found: %s entries', Object.keys(clientsList).length);
         }
     }
 
-    // write uses to the users.json file
-    function writeUsers() {
-        let data = JSON.stringify(UsersList, null, 2);
-        fs.writeFile(process.env.USERSFILE, data, (err) => {
+    function writeClients() {
+        let data = JSON.stringify(clientsList, null, 2);
+        fs.writeFile(clientsFile, data, (err) => {
             if (err) throw err;
         });
     }
 
-    // Check if a user allowed to request a tunnel
-    function checkUserHeaderLogin(ctx) {
-        // Do we have the user header
-        let userHKey = null;
-        if ('x-user-key' in ctx.request.headers && ctx.request.headers['x-user-key'] !== undefined) {
-            userHKey = ctx.request.headers['x-user-key'];
+    // Check if a client allowed to request a tunnel
+    function checkClientHeaderLogin(ctx) {
+        let clientHKey = null;
+        if ('x-client-key' in ctx.request.headers && ctx.request.headers['x-client-key'] !== undefined) {
+            clientHKey = ctx.request.headers['x-client-key'];
         }
 
-        // íf dont have anything to validate the user against then we will return true on a public else false
-        if (userHKey == null || !doWeHaveUsersEnv()) {
+        // íf dont have anything to validate the agent against then we will return true on a public else false
+        if (clientHKey == null || !doWeHaveClientsList()) {
             debug('No way to auth - public server: %s', publicServer);
             return publicServer;
         }
 
-        // Do we have a user list - if not lets load it
-        if (!Object.keys(UsersList).length) {
-            loadUsers();
+        let clientHost = getClientFromClientsList(clientHKey);
+        if (clientHost == null) {
+            debug('Client "%s" not found - failure, Client IP: %s', clientHKey, ctx.request.ip);
+            debug('Auth failed - public server: %s', publicServer);
+            return publicServer;
         }
 
-        // Did we find the user
-        if (Object.prototype.hasOwnProperty.call(UsersList, userHKey) || (Array.isArray(UsersList) && UsersList.includes(userHKey))) {
-            debug('Client approved - success, Client IP: %s', ctx.request.ip);
-            return true;
-        }
-
-        debug('Client "%s" not found - failure, Client IP: %s', userHKey, ctx.request.ip);
-        debug('Auth failed - public server: %s', publicServer);
-        return publicServer;
+        debug('Client approved - success, Client IP: %s', ctx.request.ip);
+        return true;
     }
 
     // API header key login check
@@ -150,7 +167,7 @@ export default function (opt) {
         } else if ('authorization' in ctx.request.headers) {
             keyChk = ctx.request.headers['authorization'].replace('Bearer ', '');
         }
-        if (keyChk != null && process.env.API_KEY !== undefined && process.env.API_KEY != '' && process.env.API_KEY != 'false' && keyChk == process.env.API_KEY) {
+        if (keyChk != null && apiKey !== undefined && apiKey != '' && apiKey != 'false' && keyChk == apiKey) {
             debug('API auth: APPROVED');
             return true;
         }
@@ -180,12 +197,13 @@ export default function (opt) {
             jpg: 'image/jpeg',
             jpe: 'image/jpeg',
             png: 'image/png',
+            ico: 'image/x-ico',
             css: 'text/css',
             js: 'text/javascript',
             json: 'application/json'
         };
 
-        let fileExt = filename.split('.').pop().toLowerCase();
+        let fileExt = path.extname(filename).replace('.', '');
         let mimetype = 'text/html';
         if (Object.prototype.hasOwnProperty.call(mimeTypes, fileExt)) {
             mimetype = mimeTypes[fileExt];
@@ -232,21 +250,13 @@ export default function (opt) {
         }
 
         // Do we have basic auth
-        if (process.env.ADMIN_AUTH === undefined || process.env.ADMIN_AUTH === 'false') {
+        if (dashboardUser === undefined || dashboardUser === false || dashboardPass === undefined || dashboardPass === false) {
             debug('Admin AUTH: missing enviroment');
             return false;
         }
 
-        // Lookup auth info
-        let authIDs = process.env.ADMIN_AUTH.split(':');
-        if (authIDs.length != 2) {
-            console.error('Bad configuration of API_BASICAUTH: "%s"', process.env.ADMIN_AUTH);
-            process.exit(1);
-            return false;
-        }
-
         // check admin auth
-        if (authThis(ctx.request.headers['authorization'], authIDs[0], authIDs[1]) == false) {
+        if (authThis(ctx.request.headers['authorization'], dashboardUser, dashboardPass) == false) {
             debug('Admin AUTH: failed');
             if (promptLogin) {
                 buildAuthRequest(ctx);
@@ -269,7 +279,7 @@ export default function (opt) {
             return false;
         }
 
-        // Admin is always allowed - but don't prompt yet - we will try as user
+        // Admin is always allowed - but don't prompt yet - we will try as client
         if (adminAuthCheck(ctx, false)) {
             debug('Client AUTH: approved as admin');
             return true;
@@ -296,6 +306,9 @@ export default function (opt) {
     }
 
     /* [DASHBOARD WEB UI] -------------------------------------------------------------------------------------------------------------------------------------------------------- */
+    router.get('/favicon.ico', async (ctx) => {
+        webserveFile(ctx, 'favicon.ico');
+    });
 
     // client dashboard
     router.get(dashPath + '/c/:clientid/(.*)', async (ctx) => {
@@ -309,7 +322,7 @@ export default function (opt) {
             return;
         }
 
-        // Try user auth (and admin auth)
+        // Try client auth (and admin auth)
         if (!clientAuth(client, ctx)) {
             return;
         }
@@ -351,12 +364,11 @@ export default function (opt) {
         webserveFile(ctx, file);
     });
 
-    /* [USER API ENDPOINT] ------------------------------------------------------------------------------------------------------------------------------------------------------- */
+    /* [CLIENTS API ENDPOINT] ------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
-    // Reload the users file
-    router.get('/api/users/reload', async (ctx) => {
-        // Do we have a users file?
-        if (!doWeHaveUsersEnv()) {
+    // Reload the client file
+    router.get('/api/S/reload', async (ctx) => {
+        if (!doWeHaveClientsList()) {
             ctx.throw(404);
             return;
         }
@@ -366,21 +378,20 @@ export default function (opt) {
             return;
         }
 
-        let prevUsers = Object.keys(UsersList).length;
+        let prevClients = Object.keys(clientsList).length;
 
-        // Load the users list
-        loadUsers();
+        // Load the clients list
+        loadClients();
 
         ctx.body = {
-            noUsers: Object.keys(UsersList).length,
-            PrevNoUsers: prevUsers
+            noClient: Object.keys(clientsList).length,
+            PrevNoClient: prevClients
         };
     });
 
-    // Add users
-    router.post('/api/users/:user', async (ctx) => {
-        // Do we have users
-        if (!doWeHaveUsersEnv()) {
+    // Add client
+    router.post('/api/clients/:client', async (ctx) => {
+        if (!doWeHaveClientsList()) {
             ctx.throw(404);
             return;
         }
@@ -390,54 +401,49 @@ export default function (opt) {
             return;
         }
 
-        const userID = path.basename(ctx.params.user);
+        const clientID = path.basename(ctx.params.client);
 
-        // Load the users list
-        loadUsers();
+        loadClients();
 
-        // Simple user list or full
-        let bUserAdded = false;
-        if (Array.isArray(UsersList)) {
-            UsersList.push(userID);
-            bUserAdded = true;
+        let bClientAdded = false;
+        if (Array.isArray(clientsList)) {
+            clientsList.push(clientID);
+            bClientAdded = true;
         } else if ('x-secret' in ctx.request.headers && ctx.request.headers['x-secret'] !== undefined && ctx.request.headers['x-secret'] != '') {
-            UsersList[userID] = ctx.request.headers['x-secret'];
-            bUserAdded = true;
+            clientsList[clientID] = ctx.request.headers['x-secret'];
+            bClientAdded = true;
         }
-        if (bUserAdded) {
-            writeUsers();
-            ctx.body = 'User "' + userID + '" addedd';
+        if (bClientAdded) {
+            writeClients();
+            ctx.body = 'Client "' + clientID + '" addedd';
         } else {
             ctx.throw(403, 'Bad Request');
-            ctx.body = 'User "' + userID + '" NOT addedd';
+            ctx.body = 'Client "' + clientID + '" NOT addedd';
         }
         debug(ctx.body);
     });
 
-    // delete users
-    router.delete('/api/users/:user', async (ctx) => {
-        // Do we have users
-        if (!doWeHaveUsersEnv()) {
+    // delete client
+    router.delete('/api/clients/:clientid', async (ctx) => {
+        if (!doWeHaveClientsList()) {
             ctx.throw(404);
             return;
         }
 
-        const userID = path.basename(ctx.params.user);
+        const clientid = path.basename(ctx.params.clientid);
 
         // Api header key is the first one - if that fails we can use the basic auth stuff
         if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
             return;
         }
 
-        // Load the users list
-        loadUsers();
+        loadClients();
 
-        // Delete user
-        if (Object.prototype.hasOwnProperty.call(UsersList, userID) || (Array.isArray(UsersList) && UsersList.includes(userID))) {
-            delete UsersList[userID];
+        if (Object.prototype.hasOwnProperty.call(clientsList, clientid) || (Array.isArray(clientsList) && clientsList.includes(clientid))) {
+            delete clientsList[clientid];
         }
-        writeUsers();
-        ctx.body = 'User "' + userID + '" deleted';
+        writeClients();
+        ctx.body = 'Client "' + clientid + '" deleted';
         debug(ctx.body);
     });
 
@@ -552,7 +558,7 @@ export default function (opt) {
         };
     });
 
-    // Disconnect user users
+    // Disconnect a tunnel
     router.delete('/api/tunnels/:id', async (ctx) => {
         const clientId = ctx.params.id;
         const client = manager.getClient(clientId);
@@ -617,7 +623,7 @@ export default function (opt) {
             return;
         }
 
-        // Valid client
+        // Valid client/user
         let clientAgent = 'unknown';
         if ('user-agent' in ctx.request.headers) {
             clientAgent = ctx.request.headers['user-agent'];
@@ -626,18 +632,22 @@ export default function (opt) {
             debug('Invalid agent: %s != %s', clientAgent, clientAgentValid);
             ctx.status = 307;
             ctx.set('location', landingPage);
-            ctx.body = { errorMsg: 'Invalid user agent: ' + clientAgent };
+            ctx.body = { errorMsg: 'Invalid client agent: ' + clientAgent };
             return;
         }
 
-        // Check against users table
-        if (!checkUserHeaderLogin(ctx)) {
+        // Check against client table
+        if (!checkClientHeaderLogin(ctx)) {
             ctx.status = 403;
-            ctx.body = { errorMsg: 'Invalid or missing x-user-key header' };
+            ctx.body = { errorMsg: 'Invalid or missing x-client-key header' };
             return;
         }
 
-        let reqID = null;
+        let reqHostname = null;
+        let clientReqHostName = null;
+        if ('x-client-key' in ctx.request.headers && ctx.request.headers['x-client-key'] != undefined) {
+            clientReqHostName = getClientFromClientsList(ctx.request.headers['x-client-key']);
+        }
 
         // classic methods first
         if (reqpath !== '/') {
@@ -647,10 +657,10 @@ export default function (opt) {
                 return;
             }
 
-            reqID = parts[1];
+            reqHostname = parts[1];
             // limit requested hostnames to 63 characters
-            if (!/^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqID)) {
-                debug('Invalid subdomain requested, "%s"', reqID);
+            if (!/^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqHostname)) {
+                debug('Invalid subdomain requested, "%s"', reqHostname);
                 const msg = 'Invalid subdomain. Subdomains must be lowercase and between 4 and 63 alphanumeric characters.';
                 ctx.status = 403;
                 ctx.body = {
@@ -660,19 +670,16 @@ export default function (opt) {
             }
 
             // Do we allow the user to override the hostnames from the file
-            if (process.env.ALLOWUSRHOSTOVERRIDE === 'false') {
-                let userHN = getUserHostName(ctx);
-                if (userHN !== null && reqID != userHN) {
-                    debug('Client requested "%s" - but we dont allow override, so serving "%s"', reqID, userHN);
-                    reqID = userHN;
+            if (clientOverride === false) {
+                if (clientReqHostName !== null && reqHostname != clientReqHostName) {
+                    debug('Client requested "%s" - but we dont allow override, so serving "%s"', reqHostname, clientReqHostName);
+                    reqHostname = clientReqHostName;
                 }
             }
-        } else {
-            // Getting a new random one or should we use the fixed from the users file
-            reqID = getUserHostName(ctx);
-            if (reqID == null) {
-                reqID = hri.random();
-            }
+        }
+
+        if (reqHostname == null) {
+            reqHostname = hri.random();
         }
 
         // Set basic auth if requested to do so
@@ -686,10 +693,10 @@ export default function (opt) {
         }
 
         // Create the client
-        const info = await manager.newClient(reqID, authUser, authPass, ctx.request.ip, clientAgent);
+        const info = await manager.newClient(reqHostname, authUser, authPass, ctx.request.ip, clientAgent);
 
         // Status
-        if (reqID == info.id) {
+        if (reqHostname == info.id) {
             debug('Made new client with requested id "%s"', info.id);
         } else {
             debug('Made new random client with id "%s"', info.id);
@@ -712,24 +719,24 @@ export default function (opt) {
     /* [START TUNNEL AND HANDLE ALL REQUESTS]   ------------------------------------------------------------------------------------------------------------------------------------ */
     // Start the server
     let server;
-    if (opt.secure) {
+    if (insecure) {
+        server = http.createServer();
+        debug('Running insecure server, http');
+    } else {
         // Do we have the file to run a secure setup?
-        if (!fs.accessSync(process.env.SSL_KEY) || !fs.existsSync(process.env.SSL_CERT)) {
+        if (!fs.existsSync(keyFile) || !fs.existsSync(certFile)) {
             console.error('Bad or missing cert files');
             process.exit(1);
         }
-        debug('Running secure server, https, using %s , %s', process.env.SSL_KEY, process.env.SSL_CERT);
+        debug('Running secure server, https, using %s , %s', keyFile, certFile);
         server = https.createServer({
-            key: fs.readFileSync(process.env.SSL_KEY, 'ascii'),
-            cert: fs.readFileSync(process.env.SSL_CERT, 'ascii')
+            key: fs.readFileSync(keyFile, 'ascii'),
+            cert: fs.readFileSync(certFile, 'ascii')
         });
-    } else {
-        server = http.createServer();
-        debug('Running insecure server, http');
     }
 
-    // Load any users if present
-    loadUsers();
+    // Load any client if present
+    loadClients();
 
     const appCallback = app.callback();
 

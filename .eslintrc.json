@@ -4,6 +4,7 @@
         "es2021": true,
         "node": true
     },
+    "ignorePatterns": ["*.md","*.json"],
     "extends": ["plugin:prettier/recommended"],
     "parserOptions": {
         "ecmaVersion": "latest",

@@ -14,3 +14,8 @@
 	max-height: 25vh;
 	overflow-y: auto;
 }
+
+.ajax-alert .ts{
+	font-size:  0.8em;
+	margin-top: 3px;
+}

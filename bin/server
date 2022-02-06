@@ -1,31 +1,18 @@
 #!/usr/bin/env -S node -r esm
 
-/*
- todo:
-    Add options:
-        USERSFILE=users.json - check fileAccess
-        API_KEY = x-api-key
-        ADMIN_AUTH
-        ALLOWUSRHOSTOVERRIDE
-        SSL_KEY - check fileAccess
-        SSL_CERT - check fileAccess
- */
+import 'localenv';
+const { Command, Option } = require('commander');
 
-import "localenv";
-const {
-    Command,
-    Option
-} = require("commander");
-
-const {
-    version
-} = require("../package");
+const { version } = require('../package');
+const { EOL } = require('os');
 
 const program = new Command();
 const debug = require('debug')('tunnelout-server:bin');
 
-import Debug from "debug";
-import CreateServer from "../server";
+import { cwd } from 'process';
+import Debug from 'debug';
+import CreateServer from '../server';
+import fs from 'fs';
 
 function stringIsAValidUrl(s) {
     try {
@@ -37,93 +24,185 @@ function stringIsAValidUrl(s) {
 }
 
 function consoleError(str) {
-    console.error('\x1b[1;37m%s\x1b[0m', 'Input error:', '\x1b[0;31m' + str + '\x1b[0m\n');
+    console.error('\x1b[1;37m%s\x1b[0m', 'Input error:', '\x1b[0;31m' + str + '\x1b[0m' + EOL);
 }
 
-// Todo: validate cert files
-function fileAccess(strFile){
+function fileAccess(strFile) {
     try {
         fs.accessSync(strFile, fs.constants.R_OK);
     } catch (err) {
         if (err != undefined && 'code' in err && err.code == 'EACCES') {
-            return "Access failed: " + strFile;
+            return 'access failed: ' + strFile;
         } else {
-            return "File not found: " + strFile;
+            return 'file not found: ' + strFile;
         }
     }
     return true;
 }
 
+function envToParam(envStr) {
+    let optKey = envStr.substring(3).toLowerCase();
+    optKey = optKey.replace(/(_([a-z])(?!\s))/g, function (match, p1, p2) {
+        return p2.toUpperCase();
+    });
+    return optKey;
+}
+
+function optionToParam(str) {
+    return (
+        '--' +
+        str.replace(/([A-Z])(?!\s)/g, function (match, p1) {
+            return '-' + p1.toLowerCase();
+        })
+    );
+}
+
 program
-    .usage("--port <number> [options]")
-    .addOption(new Option("-p, --port [number]", "Listen on this port for outside requests aka public port").default(80).env("PORT").makeOptionMandatory())
-    .addOption(new Option("-s, --secure", "Use this flag to indicate proxy over https").default(true).env("SECURE").makeOptionMandatory())
-    .addOption(new Option("-a, --address <number>", "IP address to bind to").default("0.0.0.0").env("IPADR"))
-    .addOption(new Option("-d, --domain <string>", "Specify the base domain name. This is optional if hosting tunnelOut from a regular example.com domain. This is required if hosting a tunnelOut server from a subdomain (i.e. lt.example.dom where clients will be client-app.lt.example.com").env("DOMAIN"))
-    .addOption(new Option("-m, --max-sockets <number>", "Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)").default(10).env("MAXSOCK"))
-    .addOption(new Option("-l, --landing <string>", "The landing page for redirect from root domain").default("http://google.com").env("LANDING"))
-    .addOption(new Option("-p, --public-server", "Allow anyone to connect, if not set the client has to provide a valid user key in x-user-key header").default(false).env("PUBLIC"))
-    .addOption(new Option("-c, --clientvalid <string>", "Client agent string to validate against").default("tunnelout").env("CLIENTVALID"))
+    .usage('--port <number> [options]')
+    .addOption(new Option('-p, --port [number]', 'Listen on this port for outside requests aka public port').default(443).env('TO_PORT').makeOptionMandatory())
+    .addOption(new Option('-a, --ipaddress <number>', 'IP address to bind to').default('0.0.0.0').env('TO_IPADDRESS'))
+    .addOption(new Option('-d, --domain <string>','Specify the base domain name. This is optional if hosting tunnelOut from a regular example.com domain. This is required if hosting a tunnelOut server from a subdomain (i.e. subdomain.example.dom where clients will be client-app.subdomain.example.com').env('TO_DOMAIN'))
+    .addOption(new Option('-m, --max-sockets <number>', 'Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)').default(10).env('TO_MAX_SOCKETS'))
+    .addOption(new Option('-l, --landing <string>', 'The landing page for redirect from root domain').default('https://google.com').env('TO_LANDING'))
+    .addOption(new Option('-c, --clientvalid <string>', 'Client agent string to validate against').default('tunnelout').env('TO_CLIENTVALID'))
+    .addOption(new Option('-i, --insecure', 'Use this flag to indicate proxy over insecure http').default(false).env('TO_INSECURE'))
+    .addOption(new Option('-ps, --public-server','Allow anyone to connect, if not public then the client has to provide a valid client key in x-user-key header - (client keys are stored in the --clients-file)').default(false).env('TO_PUBLIC_SERVER'))
+    .addOption(new Option('-pf, --key-file <path>', 'Path to certificate key file (privkey.pem) for the HTTPS server. Required when running secure server').env('TO_KEY_FILE'))
+    .addOption(new Option('-cf, --cert-file <path>', 'Path to certificate chain/cert file (fullchain.pem) for the HTTPS server. Required when running secure server').env('TO_CERT_FILE'))
+    .addOption(new Option('-cl, --clients-file <path>', 'Path to clients list (JSON format) file containing client name and their "reserved" host name').env('TO_CLIENTS_FILE'))
+    .addOption(new Option('-co, --client-override', 'Set this to allow the client to override its assigned subdomain when using the clients file method').default(false).env('TO_CLIENT_OVERRIDE'))
+    .addOption(new Option('-ak, --apikey <string>', 'The value that must be sent in the x-api-key/authorization header of the API request to be validated - default is false disabling the API.').default(false).env('TO_APIKEY'))
+    .addOption(new Option('-du, --dashboard-user <string>', 'The username used for authorization to access the admin dashboard').env('TO_DASHBOARD_USER'))
+    .addOption(new Option('-dp, --dashboard-pass <string>', 'The password used for authorization to access the admin dashboard').env('TO_DASHBOARD_PASS'))
     .version(version);
 program.parse(process.argv);
 const options = program.opts();
-debug("Server started with the following options:");
-debug(options);
-debug("ENV:");
-debug(process.env);
+
+// INPUT VALIDATION START ------------------------------------------------------------------------------------------------------
+// filter boolean values from env and check it all
+debug('ENV values:');
+Object.entries(process.env).forEach(function ([key, value]) {
+    if (key.indexOf('TO_') == 0) {
+        let optKey = envToParam(key);
+        // Is the env value boolean - commander set its to true if anything is entered in evn and the argument is not a string
+        if (typeof options[optKey] == 'boolean' && program.getOptionValueSource(optKey) == 'env') {
+            let envBoolFail = true;
+            let valLow = value.toLowerCase();
+            // Do we have a string "boolean" false the convert to real false
+            if (valLow == 'false' || value == 0) {
+                if (options[optKey] != undefined) {
+                    // Assign real boolean value
+                    options[optKey] = false;
+                    envBoolFail = false;
+                }
+            }
+            if (valLow == 'true' || value == 1) {
+                if (options[optKey] != undefined) {
+                    // Assign real boolean value
+                    options[optKey] = true;
+                    envBoolFail = false;
+                }
+            }
+            if (envBoolFail) {
+                consoleError('Invalid ENV argument for ' + key + ' value "' + value + '" is not a boolean value');
+                program.help({ error: true });
+            }
+        }
+    }
+});
+
+debug('Server started with the following options. Format = argument : value (source for value)');
+Object.entries(options).forEach(function ([key, value]) {
+    debug(' ' + key + ': ' + value + ' (' + program.getOptionValueSource(key) + ')');
+});
 
 options.port = Number(options.port);
 if (isNaN(options.port)) {
     consoleError('Invalid argument: "port" must be a number');
-    program.help();
+    program.help({ error: true });
 }
-if (options.maxSockets != undefined){
+if (options.maxSockets != undefined) {
     options.maxSockets = Number(options.maxSockets);
     if (isNaN(options.maxSockets) || options.maxSockets <= 0) {
         consoleError('Invalid argument: "max-sockets" must be a positive number');
-        program.help();
+        program.help({ error: true });
     }
 }
 
-// check host
+// check landing page url
 if (options.landing != undefined && !stringIsAValidUrl(options.landing)) {
     consoleError('Invalid argument: "landing" must be a valid URL');
-    program.help();
+    program.help({ error: true });
 }
 
-if (options.address != undefined && options.address != "localhost"){
-    if (/^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$/.test(options.address) == false) {
+if (options.ipaddress != undefined && options.ipaddress != 'localhost') {
+    if (/^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$/.test(options.ipaddress) == false) {
         consoleError('Invalid argument: "address" must be a valid IPv4');
-        program.help();
+        program.help({ error: true });
     }
 }
 
+// check dashboard login/auth for admin
+if (typeof options.dashboardUser !== typeof options.dashboardPass && (options.dashboardUser === undefined || options.dashboardPass === undefined)) {
+    consoleError('Both --dashboard-user and --dashboard-pass must be supplied if you want to use dashboard');
+    program.help({ error: true });
+}
+
+if (options.dashboardPass !== undefined && options.dashboardPass === options.dashboardUser) {
+    consoleError('--dashboard-user and --dashboard-pass parameters must be different!');
+    program.help({ error: true });
+}
+if (options.dashboardPass !== undefined && /^(?=(.*[a-z]){3,})(?=(.*[A-Z]){2,})(?=(.*[0-9]){2,})(?=(.*[!@#$%^&*()\-__+.]){1,}).{8,}$/.test(options.dashboardPass) == false) {
+    consoleError(EOL + 'Insecure --dashboard-pass, minimmum is 8 chars long containing at least: 3 lowercaser chars, 2 uppercase chars, 2 numeric chars and one special char(!@#$%^&*()-__+.)');
+    program.help({ error: true });
+}
+
+let fileChecks = {};
+// If we are running secure we need SSL cert files
+if (options.insecure !== true) {
+    fileChecks['keyFile'] = true;
+    fileChecks['certFile'] = true;
+}
+// on a public server we can use the clients database but it not mandatory
+if (options.publicServer === true) {
+    fileChecks['clientsFile'] = false;
+} else {
+    fileChecks['clientsFile'] = true;
+}
+Object.entries(fileChecks).forEach(function ([optKey, value]) {
+    if (options[optKey] !== undefined) {
+        let filChk = fileAccess(options[optKey]);
+        if (filChk !== true) {
+            consoleError('Invalid parameter for "' + optionToParam(optKey) + '", ' + filChk);
+            program.help({ error: true });
+        }
+        // mandatory
+    } else if (value) {
+        consoleError('Missing file parameter for "' + optionToParam(optKey) + '"');
+        program.help({ error: true });
+    }
+});
+// INPUT VALIDATION END ------------------------------------------------------------------------------------------------------
+
 // Build the main server
-const server = CreateServer({
-    max_tcp_sockets: options.maxSockets,
-    secure: options.secure,
-    domain: options.domain,
-    landing: options.landing,
-    clientValid: options.clientvalid,
-    public: options.publicServer
+const server = CreateServer(options);
+
+server.listen(options.port, options.ipaddress, () => {
+    debug('Server listening on %s:%d', server.address().address, server.address().port);
 });
 
-server.listen(options.port, options.address, () => {
-    debug("Server listening on %s:%d", server.address().address,server.address().port);
-});
-
-process.on("SIGINT", () => {
+process.on('SIGINT', () => {
     process.exit();
 });
 
-process.on("SIGTERM", () => {
+process.on('SIGTERM', () => {
     process.exit();
 });
 
-process.on("uncaughtException", (err) => {
+process.on('uncaughtException', (err) => {
     console.error(err);
 });
 
-process.on("unhandledRejection", (reason) => {
+process.on('unhandledRejection', (reason) => {
     console.error(reason);
 });

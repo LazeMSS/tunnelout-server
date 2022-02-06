@@ -1,13 +1,3 @@
-/**
-
- todo:
-	UI
-		admin:
-			user editor/display
-			block/delete client in client list
-
- **/
-
 var templates = {
     os: {
         title: 'Operation system (OS)',
@@ -118,7 +108,7 @@ function fetchData(url, callbackf) {
         })
         .catch((error) => {
             $('#fetchSpinner').addClass('d-none');
-            ajaxError('Failed to fetch data on: ' + url, error);
+            ajaxError('Failed to fetch/process data on: ' + url, error);
         });
 }
 
@@ -145,19 +135,20 @@ function apiGeneric(url, setmethod, callbackf) {
         })
         .catch((error) => {
             $('#fetchSpinner').addClass('d-none');
-            ajaxError('Failed to call the API on: ' + url, error + '\nMethod:' + setmethod);
+            ajaxError('Failed to call/process the API on: ' + url, error + '\nMethod:' + setmethod);
         });
 }
 
 function ajaxError(message, tech) {
     $('.ajax-alert').remove();
-    var alertMSG = $(
-        '<div class="ajax-alert alert alert-primary alert-dismissible" role="alert"><h4 class="alert-heading"><i class="me-1 bi bi-bug"></i>Ajax/Backend error</h4><p>' +
-            message +
-            '</p><hr/><pre class="mb-0">Data:\n' +
-            tech +
-            '</pre><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>'
-    );
+    var alertMSG = `
+    <div class="ajax-alert alert alert-primary alert-dismissible" role="alert">
+        <div class="float-end text-black-50 font-monospace ts">${new Date().toLocaleString()}</div>
+        <h4 class="alert-heading"><i class="me-1 bi bi-bug"></i>Ajax/Backend error</h4>
+        <p>${message}</p>
+        <pre class="mb-0">Data:\n${tech}</pre>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>`;
     $('#mainContainer').prepend(alertMSG);
 }
 
@@ -232,15 +223,10 @@ function calcMemUsage(obj) {
 // Wrapper for the worst ui pretty mockery
 function specialData(obj, k, parent = null) {
     if (parent == 'os') {
+        // Inject a progress bar
         if (k == 'total_mem') {
             var prc = calcMemUsage(obj);
-            return (
-                '</li><li class="list-group-item"><div class="progress noRemove" style="height: 20px;"><div id="memgraph" class="progress-bar noRemove" role="progressbar" style="width: ' +
-                prc +
-                '%;">' +
-                prc +
-                '%</div></div></li>'
-            );
+            return ('</li><li class="list-group-item"><div class="progress noRemove" style="height: 20px;"><div id="memgraph" class="progress-bar noRemove" role="progressbar" style="width: ' + prc + '%;">' + prc + '%</div></div></li>');
         }
         if (k == 'cpus') {
             noCpus = obj[k];
@@ -248,11 +234,7 @@ function specialData(obj, k, parent = null) {
     }
     if (parent == 'load_avg') {
         var prc = Math.round((obj[k] / noCpus) * 100);
-        return (
-            '<div class="w-100 progress noRemove position-absolute bottom-0 start-50 translate-middle-x" style="height: 2px;"><div class="progress-bar noRemove" role="progressbar" style="width: ' +
-            prc +
-            '%;"></div></div>'
-        );
+        return ('<div class="w-100 progress noRemove position-absolute bottom-0 start-50 translate-middle-x" style="height: 2px;"><div class="progress-bar noRemove" role="progressbar" style="width: ' + prc + '%;"></div></div>');
     }
 
     return '';
@@ -385,7 +367,18 @@ function filterClients(keyword) {
 
 function buildAdminClientList(dataSet) {
     var domHolder = $(
-        '<div id="clientList" class="h-100 table-responsive border-bottom border-top"><table class="border-bottom-0 mb-0 caption-top text-nowrap table table-sm table-hover"><thead><tr><th>Name</th><th>IP</th><th class="text-end">Actions</th></tr></thead><tbody class="align-middle"></tbody></table></div>'
+        `<div id="clientList" class="h-100 table-responsive border-bottom border-top">
+            <table class="border-bottom-0 mb-0 caption-top text-nowrap table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>IP</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="align-middle"></tbody>
+            </table>
+        </div>`
     );
     var tbody = domHolder.find('tbody');
 
@@ -404,7 +397,12 @@ function buildAdminClientList(dataSet) {
         trow.append(link);
 
         var discli = $(
-            '<td class="text-end pe-2"><div class="btn-group" role="group"><button type="button" title="Open client web" class="clientOpen btn btn-sm btn-outline-primary"><i class="bi bi-eye"></button></i><button type="button" title="Disconnect client" class="clientDisc btn btn-sm btn-outline-primary"><i class="bi bi-door-closed"></i></button></div></td>'
+            `<td class="text-end pe-2">
+                <div class="btn-group" role="group">
+                    <button type="button" title="Open client web" class="clientOpen btn btn-sm btn-outline-primary"><i class="bi bi-eye"></button></i>
+                    <button type="button" title="Disconnect client" class="clientDisc btn btn-sm btn-outline-primary"><i class="bi bi-door-closed"></i></button>
+                </div>
+            </td>`
         );
         discli.find('button.clientDisc').on('click', function (event) {
             showConfirm('<i class="bi bi-door-closed me-1"></i>Confirm disconnect client&hellip;', 'Are you sure you want to disconnect "' + hostname + '"?', function (result) {
@@ -455,9 +453,13 @@ function buildRequestTable(dataSet) {
     });
     th += '</tr></thead>';
     var reqTable = $(
-        '<div class="table-responsive" id="requestTable"><table class="mb-0 caption-top text-nowrap table table-sm table-hover"><caption>Last 10 requests seen</caption>' +
-            th +
-            '<tbody class="align-middle"></tbody></table></div>'
+        `<div class="table-responsive" id="requestTable">
+            <table class="mb-0 caption-top text-nowrap table table-sm table-hover">
+                <caption>Last 10 requests seen</caption>
+                ${th}
+                <tbody class="align-middle"></tbody>
+            </table>
+        </div>`
     );
     var tbody = reqTable.find('tbody');
     $.each(dataSet.last10request, function (x, reqdat) {
@@ -511,7 +513,7 @@ function updateUiItem(parent, data) {
         if (typeof dataSet == 'object') {
             updateUiItem(key, dataSet);
         } else {
-            var item = $('#datavalue_' + parent + '_' + key);
+            var item = $('#datavalue_' + makeSafeStr(parent) + '_' + makeSafeStr(key));
             if (!item.length) {
                 // Todo add item?
                 console.log(key + ' not found in dash');
@@ -561,7 +563,7 @@ function buildUlItems(obj, level = 0, parent = null) {
             if (hasChildren != '') {
                 strReturn += buildUlItems(obj[k], level + 3, k);
             } else {
-                strReturn += '<span class="udatedata" id="datavalue_' + parent + '_' + k + '">' + formatData(obj[k]) + '</span>';
+                strReturn += '<span class="udatedata" id="datavalue_' + makeSafeStr(parent) + '_' + makeSafeStr(k) + '">' + formatData(obj[k]) + '</span>';
                 strReturn += specialData(obj, k, parent);
             }
             strReturn += '</li>';
@@ -604,4 +606,10 @@ function getCookie(cname) {
         }
     }
     return '';
+}
+
+
+function makeSafeStr(strv){
+    strv = String(strv);
+    return strv.replace(/\W/g, '');
 }
