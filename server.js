@@ -8,12 +8,6 @@
             block/delete client in client list
 
     Client:
-        allow setting the client agent/client_name
-        naming scheme: user = agent
-        prefix env with to_
-        make env fit arguments naming like in server
-        check all env options
-        env bool check like server
         local https problems
 
     Server generic:

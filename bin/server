@@ -80,7 +80,6 @@ const options = program.opts();
 
 // INPUT VALIDATION START ------------------------------------------------------------------------------------------------------
 // filter boolean values from env and check it all
-debug('ENV values:');
 Object.entries(process.env).forEach(function ([key, value]) {
     if (key.indexOf('TO_') == 0) {
         let optKey = envToParam(key);
@@ -108,12 +107,15 @@ Object.entries(process.env).forEach(function ([key, value]) {
                 program.help({ error: true });
             }
         }
+        if (value === '' && program.getOptionValueSource(optKey) == 'env') {
+             options[optKey] = undefined;
+        }
     }
 });
 
 debug('Server started with the following options. Format = argument : value (source for value)');
 Object.entries(options).forEach(function ([key, value]) {
-    debug(' ' + key + ': ' + value + ' (' + program.getOptionValueSource(key) + ')');
+    debug(' %s: %s (%)',key, value, program.getOptionValueSource(key));
 });
 
 options.port = Number(options.port);
