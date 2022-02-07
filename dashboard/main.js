@@ -399,8 +399,8 @@ function buildAdminClientList(dataSet) {
         var discli = $(
             `<td class="text-end pe-2">
                 <div class="btn-group" role="group">
-                    <button type="button" title="Open client web" class="clientOpen btn btn-sm btn-outline-primary"><i class="bi bi-eye"></button></i>
-                    <button type="button" title="Disconnect client" class="clientDisc btn btn-sm btn-outline-primary"><i class="bi bi-door-closed"></i></button>
+                    <button type="button" title="Open client web" class="clientOpen btn btn-sm btn-outline-primary"><i class="bi bi-globe"></button></i>
+                    <button type="button" title="Disconnect client" class="clientDisc btn btn-sm btn-outline-primary"><i class="bi bi-person-x"></i></button>
                 </div>
             </td>`
         );
