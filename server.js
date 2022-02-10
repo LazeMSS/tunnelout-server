@@ -7,9 +7,6 @@
             client editor/display
             block/delete client in client list
 
-    Client:
-        local https problems
-
     Server generic:
         Better post options for client (handle body) in apis
 
@@ -443,7 +440,7 @@ export default function (opt) {
             ctx.body = 'Client "' + clientID + '" addedd';
             debug('API clients added: %s', clientID);
         } else {
-            ctx.throw(403, 'Bad Request');
+            ctx.status = 403;
             ctx.body = 'Client "' + clientID + '" NOT addedd';
             debug('API clients failed to add: %s', clientID);
         }
