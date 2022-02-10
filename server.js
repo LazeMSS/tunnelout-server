@@ -500,26 +500,12 @@ export default function (opt) {
         });
 
         // Params data quick handler
-        let inst = process.argv.slice(2);
-        let keyVal = '';
-        let paramsList = {};
-        Object.keys(inst).forEach(function (key) {
-            if (inst[key][0] == '-') {
-                if (keyVal != '') {
-                    paramsList[keyVal] = true;
-                }
-                keyVal = inst[key];
-            } else {
-                if (keyVal != '') {
-                    paramsList[keyVal] = inst[key];
-                    keyVal = '';
-                }
+        let optBack = {};
+        Object.keys(opt).forEach(function (key) {
+            if (key != 'apikey' && key != 'dashboardPass') {
+                optBack[key] = opt[key];
             }
         });
-        // add last params
-        if (keyVal != '') {
-            paramsList[keyVal] = true;
-        }
 
         ctx.body = {
             clients: returnClients,
@@ -545,7 +531,7 @@ export default function (opt) {
                 valid_hosts: validHosts,
                 landing_page: landingPage,
                 schema: schema,
-                arguments: paramsList
+                arguments: optBack
             },
             packinfo: packageInfo
         };
