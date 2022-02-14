@@ -432,21 +432,20 @@ export default function (opt) {
         }
         const clientID = path.basename(ctx.params.client);
 
-        if (apiBody != null && typeof apiBody == "object") {
-            debug('Got a JSON body');
-            debug(apiBody);
-            if (Object.keys(apiBody).length === 0 || !Object.prototype.hasOwnProperty.call(apiBody, 'secret') || apiBody.secret == '') {
-                ctx.status = 404;
-                ctx.body = 'Invalid JSON data';
-                return;
-            }
-        }
-
         loadClients();
         let bClientAdded = false;
         if (Array.isArray(clientsList)) {
             clientsList.push(clientID);
         } else {
+            //
+            if (apiBody == null || typeof apiBody != 'object' || Object.keys(apiBody).length === 0 || !Object.prototype.hasOwnProperty.call(apiBody, 'secret') || apiBody.secret == '') {
+                ctx.status = 404;
+                ctx.body = 'Invalid JSON data';
+                return;
+            }
+
+            debug('Got a JSON body');
+            debug(apiBody);
             // Assign the advanced way
             apiBody['hostname'] = clientID;
             clientsList[apiBody.secret] = apiBody;
