@@ -6,11 +6,7 @@
         admin:
             client editor/display
             block/delete client in client list
-
-    Server generic:
-        Better post options for client (handle body) in apis
-
- */
+*/
 import Koa from 'koa';
 import Router from 'koa-router';
 import tldjs from 'tldjs';
@@ -63,6 +59,8 @@ export default function (opt) {
     let clientsList = {};
     let clientsListLoaded = false;
 
+    let apiBody = null;
+
     /* [CLIENT LOGIN RELATED] ------------------------------------------------------------------------------------------------------------------------------------------------------ */
 
     // Lookup a hostname based on the client id
@@ -80,21 +78,24 @@ export default function (opt) {
         return false;
     }
 
-    function getClientFromClientsList(clientID) {
+    function getClientHostnameFromClientsList(clientID) {
         if (!doWeHaveClientsList()) {
             return null;
         }
 
         if (!clientsListLoaded) {
-            debug('getClientFromClientsList: No clients found - loading the file...');
+            debug('getClientHostnameFromClientsList: No clients found - loading the file...');
             loadClients();
         }
 
         if (Object.prototype.hasOwnProperty.call(clientsList, clientID) || (Array.isArray(clientsList) && clientsList.includes(clientID))) {
-            debug('getClientFromClientsList: found client "%s"', clientsList[clientID]);
+            debug('getClientHostnameFromClientsList: found client "%s"', clientsList[clientID]);
+            if (Object.prototype.hasOwnProperty.call(clientsList[clientID], 'hostname')) {
+                return clientsList[clientID].hostname;
+            }
             return clientsList[clientID];
         }
-        debug('getClientFromClientsList: Unable to find client: %s', clientID);
+        debug('getClientHostnameFromClientsList: Unable to find client: %s', clientID);
         return null;
     }
 
@@ -144,7 +145,7 @@ export default function (opt) {
             return publicServer;
         }
 
-        let clientHost = getClientFromClientsList(clientHKey);
+        let clientHost = getClientHostnameFromClientsList(clientHKey);
         if (clientHost == null) {
             debug('checkClientHeaderLogin: client "%s" not found/failed. Client IP: %s, public server: %s', clientHKey, ctx.request.ip, publicServer);
             return publicServer;
@@ -155,14 +156,14 @@ export default function (opt) {
     }
 
     // API header key login check
-    function apiKeyCheck(ctx) {
+    function apiKeyCheck(headers) {
         debug('API auth: started');
         let keyChk = null;
         // Check if the key is present
-        if ('x-api-key' in ctx.request.headers) {
-            keyChk = ctx.request.headers['x-api-key'];
-        } else if ('authorization' in ctx.request.headers) {
-            keyChk = ctx.request.headers['authorization'].replace('Bearer ', '');
+        if ('x-api-key' in headers) {
+            keyChk = headers['x-api-key'];
+        } else if ('authorization' in headers) {
+            keyChk = headers['authorization'].replace('Bearer ', '');
         }
         if (keyChk != null && apiKey !== undefined && apiKey != '' && apiKey != 'false' && keyChk == apiKey) {
             debug('apiKeyCheck: API auth: APPROVED');
@@ -243,12 +244,15 @@ export default function (opt) {
     }
 
     // Admin auth
-    function adminAuthCheck(ctx, promptLogin) {
+    function adminAuthCheck(ctx, promptLogin, headers = null) {
         debug('adminAuthCheck: started');
+        if (ctx != null && headers == null) {
+            headers = ctx.request.headers;
+        }
 
         // No auth header - then ask for auth
-        if (!('authorization' in ctx.request.headers)) {
-            if (promptLogin) {
+        if (!('authorization' in headers)) {
+            if (ctx != null && promptLogin) {
                 buildAuthRequest(ctx);
             }
             debug('adminAuthCheck: missing authorization header');
@@ -262,15 +266,17 @@ export default function (opt) {
         }
 
         // check admin auth
-        if (authThis(ctx.request.headers['authorization'], dashboardUser, dashboardPass) == false) {
-            if (promptLogin) {
+        if (authThis(headers['authorization'], dashboardUser, dashboardPass) == false) {
+            if (ctx != null && promptLogin) {
                 buildAuthRequest(ctx);
             }
             return false;
         }
 
         debug('adminAuthCheck: Admin Auth approved');
-        ctx.cookies.set('authType', 'admin', { expires: 0, httpOnly: false });
+        if (ctx != null) {
+            ctx.cookies.set('authType', 'admin', { expires: 0, httpOnly: false });
+        }
         return true;
     }
 
@@ -397,7 +403,7 @@ export default function (opt) {
         }
 
         // Api header key is the first one - if that fails we can use the basic auth stuff
-        if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
+        if (!apiKeyCheck(ctx.request.headers) && !adminAuthCheck(ctx, true)) {
             return;
         }
 
@@ -421,29 +427,34 @@ export default function (opt) {
         }
 
         // Api header key is the first one - if that fails we can use the basic auth stuff
-        if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
+        if (!apiKeyCheck(ctx.request.headers) && !adminAuthCheck(ctx, true)) {
             return;
         }
         const clientID = path.basename(ctx.params.client);
+
+        if (apiBody != null && typeof apiBody == "object") {
+            debug('Got a JSON body');
+            debug(apiBody);
+            if (Object.keys(apiBody).length === 0 || !Object.prototype.hasOwnProperty.call(apiBody, 'secret') || apiBody.secret == '') {
+                ctx.status = 404;
+                ctx.body = 'Invalid JSON data';
+                return;
+            }
+        }
 
         loadClients();
         let bClientAdded = false;
         if (Array.isArray(clientsList)) {
             clientsList.push(clientID);
-            bClientAdded = true;
-        } else if ('x-secret' in ctx.request.headers && ctx.request.headers['x-secret'] !== undefined && ctx.request.headers['x-secret'] != '') {
-            clientsList[clientID] = ctx.request.headers['x-secret'];
-            bClientAdded = true;
-        }
-        if (bClientAdded) {
-            writeClients();
-            ctx.body = 'Client "' + clientID + '" addedd';
-            debug('API clients added: %s', clientID);
         } else {
-            ctx.status = 403;
-            ctx.body = 'Client "' + clientID + '" NOT addedd';
-            debug('API clients failed to add: %s', clientID);
+            // Assign the advanced way
+            apiBody['hostname'] = clientID;
+            clientsList[apiBody.secret] = apiBody;
+            delete clientsList[apiBody.secret].secret;
         }
+        writeClients();
+        ctx.body = 'Client "' + clientID + '" addedd';
+        debug('API clients added: %s', clientID);
         debug(ctx.body);
     });
 
@@ -457,7 +468,7 @@ export default function (opt) {
 
         const clientid = path.basename(ctx.params.clientid);
         // Api header key is the first one - if that fails we can use the basic auth stuff
-        if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
+        if (!apiKeyCheck(ctx.request.headers) && !adminAuthCheck(ctx, true)) {
             return;
         }
 
@@ -476,7 +487,7 @@ export default function (opt) {
     router.get('/api/status', async (ctx) => {
         debug('API status called');
         // Api header key is the first one - if that fails we can use the basic auth stuff
-        if (!apiKeyCheck(ctx) && !adminAuthCheck(ctx, true)) {
+        if (!apiKeyCheck(ctx.request.headers) && !adminAuthCheck(ctx, true)) {
             return;
         }
 
@@ -550,7 +561,7 @@ export default function (opt) {
         }
 
         // Try api and user/admin login
-        if (!apiKeyCheck(ctx) && !clientAuth(client, ctx)) {
+        if (!apiKeyCheck(ctx.request.headers) && !clientAuth(client, ctx)) {
             return false;
         }
 
@@ -582,7 +593,7 @@ export default function (opt) {
         }
 
         // Try api and user/admin login
-        if (!apiKeyCheck(ctx) && !clientAuth(client, ctx)) {
+        if (!apiKeyCheck(ctx.request.headers) && !clientAuth(client, ctx)) {
             return false;
         }
 
@@ -666,7 +677,7 @@ export default function (opt) {
         let reqHostname = null;
         let clientReqHostName = null;
         if ('x-client-key' in ctx.request.headers && ctx.request.headers['x-client-key'] != undefined) {
-            clientReqHostName = getClientFromClientsList(ctx.request.headers['x-client-key']);
+            clientReqHostName = getClientHostnameFromClientsList(ctx.request.headers['x-client-key']);
         }
 
         // classic methods first
@@ -729,6 +740,7 @@ export default function (opt) {
         if (reqHostname == info.id) {
             debug('New endpoint: Made new client with requested id: "%s"', info.id);
         } else {
+            // todo die here if clientOverride == false
             debug('New endpoint: Made new client with random id: "%s"', info.id);
         }
 
@@ -793,7 +805,40 @@ export default function (opt) {
         const clientId = GetClientIdFromHostname(hostname);
         if (!clientId) {
             debug('Client request: "%s" host not found  - redirecting to main handler', hostname);
-            appCallback(req, res);
+
+            // We need the JSON body for the client api ONLY and we dont want to include a million other modules just for this data so this is a quick and fast hack
+            if (req.url.indexOf('/api/clients/') == 0 && req.method == 'POST' && req.headers['content-type'] == 'application/json') {
+                if (!doWeHaveClientsList()) {
+                    res.statusCode = 404;
+                    res.end(fs.readFileSync(dashFolder + '404.html'));
+                    return;
+                }
+
+                // Api header key is the first one - if that fails we can use the basic auth stuff
+                if (!apiKeyCheck(req.headers) && !adminAuthCheck(null, false, req.headers)) {
+                    appCallback(req, res);
+                    return;
+                }
+
+                // Build the api body
+                apiBody = '';
+                req.on('data', (chunk) => {
+                    apiBody += chunk;
+                });
+
+                req.on('end', () => {
+                    // Now we can handle the request
+                    try {
+                        apiBody = JSON.parse(apiBody);
+                    } catch (err) {
+                        apiBody = null;
+                    }
+                    appCallback(req, res);
+                    return;
+                });
+            } else {
+                appCallback(req, res);
+            }
             return;
         }
 
