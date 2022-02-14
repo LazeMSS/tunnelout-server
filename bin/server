@@ -115,7 +115,7 @@ Object.entries(process.env).forEach(function ([key, value]) {
 
 debug('Server started with the following options. Format = argument : value (source for value)');
 Object.entries(options).forEach(function ([key, value]) {
-    debug(' %s: %s (%)',key, value, program.getOptionValueSource(key));
+    debug(' %s: %s (%s)',key, value, program.getOptionValueSource(key));
 });
 
 options.port = Number(options.port);

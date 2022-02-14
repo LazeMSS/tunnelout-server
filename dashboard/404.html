@@ -19,6 +19,18 @@
 					<h1 class="display-1">404 Not Found</h1>
 					<br/><br/>
 					<script>
+						// Fix broken urls if any - poor man
+						var domain = window.location.hostname.split('.');
+						domain = '//'+domain[domain.length-2]+'.'+domain[domain.length-1];
+						window.addEventListener("load", event => {
+							var imgs =document.getElementsByTagName("img");
+							for (var i = 0; i < imgs.length; i++) {
+								var image = imgs[i];
+								if (!image.complete || image.naturalHeight == 0){
+									image.src = domain+image.getAttribute("src");
+								}
+							}
+						});
 						document.write("<pre class=\"text-muted\">"+document.location.href+"</pre>");
 					</script>
 				</div>
