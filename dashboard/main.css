@@ -19,3 +19,16 @@
 	font-size:  0.8em;
 	margin-top: 3px;
 }
+
+#confirmDialog{
+	z-index: 1500;
+}
+
+#clientEditor.confirmOpen{
+	filter: brightness(40%);
+	pointer-events:none;
+}
+
+#clientEditor.confirmOpen *{
+	pointer-events:none;
+}

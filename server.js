@@ -11,9 +11,9 @@ import Koa from 'koa';
 import Router from 'koa-router';
 import tldjs from 'tldjs';
 import http from 'http';
+import https from 'https';
 import url from 'url';
 import { hri } from 'human-readable-ids';
-import https from 'https';
 import fs from 'fs';
 import { cwd } from 'process';
 
@@ -31,6 +31,7 @@ export default function (opt) {
     const clientAgentValid = opt.clientvalid || 'tunnelout';
     const validHosts = opt.domain ? [opt.domain] : undefined;
     const insecure = opt.insecure || false;
+    const redirecthttp = opt.nohttpredir ? false : true;
     const schema = insecure ? 'http' : 'https';
     const publicServer = opt.publicServer || false;
     const clientOverride = opt.clientOverride || false;
@@ -418,9 +419,28 @@ export default function (opt) {
         };
     });
 
+    // get the clients file
+    router.get('/api/clients/', async (ctx) => {
+        debug('API clients get');
+        if (!doWeHaveClientsList()) {
+            customErrorWeb(ctx, 404);
+            return;
+        }
+
+        // Api header key is the first one - if that fails we can use the basic auth stuff
+        if (!apiKeyCheck(ctx.request.headers) && !adminAuthCheck(ctx, true)) {
+            return;
+        }
+
+        // Load the clients list
+        loadClients();
+
+        ctx.body = clientsList;
+    });
+
     // Add client
     router.post('/api/clients/:client', async (ctx) => {
-        debug('API clients add: %s', ctx.params.client);
+        debug('API clients add/update: %s', ctx.params.client);
         if (!doWeHaveClientsList()) {
             customErrorWeb(ctx, 404);
             return;
@@ -437,10 +457,49 @@ export default function (opt) {
         if (Array.isArray(clientsList)) {
             clientsList.push(clientID);
         } else {
-            //
             if (apiBody == null || typeof apiBody != 'object' || Object.keys(apiBody).length === 0 || !Object.prototype.hasOwnProperty.call(apiBody, 'secret') || apiBody.secret == '') {
+                debug("Invalid api body");
                 ctx.status = 404;
                 ctx.body = 'Invalid JSON data';
+                return;
+            }
+
+            var curSecret = apiBody.secret;
+            delete apiBody.secret;
+
+            let inputOk = true;
+            // search for hostname and handle conflicts if any
+            Object.keys(clientsList).forEach(function (cKey) {
+                // Another client with that hostname and not the same secret/unique key
+                if (clientsList[cKey].hostname == ctx.params.client && cKey != curSecret) {
+                    debug("Conflict - hostname(%s) reserved by another client!", ctx.params.client);
+                    ctx.status = 409;
+                    ctx.body = 'Conflict - hostname reserved by another client!';
+                    inputOk = false;
+                    return false;
+                }
+            });
+
+            // New secret requested
+            if (Object.prototype.hasOwnProperty.call(apiBody, 'newsecret')) {
+                if (apiBody.newsecret != '' && apiBody.newsecret != curSecret) {
+                    if (apiBody.newsecret in clientsList) {
+                        debug("Conflict - secret used by another client!");
+                        ctx.status = 409;
+                        ctx.body = 'Conflict - secret used by another client!';
+                        inputOk = false;
+                        return false;
+                    }
+                    // Delete the old one
+                    delete clientsList[curSecret];
+                    // Assign the new one
+                    curSecret = apiBody.newsecret;
+                }
+                // Delete new secret
+                delete apiBody.newsecret;
+            }
+            // Ok to continue
+            if (!inputOk) {
                 return;
             }
 
@@ -448,8 +507,7 @@ export default function (opt) {
             debug(apiBody);
             // Assign the advanced way
             apiBody['hostname'] = clientID;
-            clientsList[apiBody.secret] = apiBody;
-            delete clientsList[apiBody.secret].secret;
+            clientsList[curSecret] = apiBody;
         }
         writeClients();
         ctx.body = 'Client "' + clientID + '" addedd';
@@ -472,9 +530,24 @@ export default function (opt) {
         }
 
         loadClients();
+        let found = false;
 
-        if (Object.prototype.hasOwnProperty.call(clientsList, clientid) || (Array.isArray(clientsList) && clientsList.includes(clientid))) {
+        if (Array.isArray(clientsList) && clientsList.includes(clientid)) {
             delete clientsList[clientid];
+            found = true;
+        } else {
+            Object.keys(clientsList).forEach(function (cKey) {
+                // Another client with that hostname and not the same secret/unique key
+                if (clientsList[cKey].hostname == clientid) {
+                    delete clientsList[cKey];
+                    found = true;
+                    return;
+                }
+            });
+        }
+        if (!found){
+            customErrorWeb(ctx, 404);
+            return;
         }
         writeClients();
         ctx.body = 'Client "' + clientid + '" deleted';
@@ -774,6 +847,15 @@ export default function (opt) {
             key: fs.readFileSync(keyFile, 'ascii'),
             cert: fs.readFileSync(certFile, 'ascii')
         });
+        // Should we redirect all the request to https?
+        if (redirecthttp) {
+            debug('http will be redirected to https');
+            const redirserver = http.createServer().listen(80);
+            redirserver.on('request', (req, res) => {
+                res.writeHead(301, { Location: 'https://' + req.headers.host + req.url });
+                res.end();
+            });
+        }
     }
 
     // Load any client if present
@@ -803,10 +885,9 @@ export default function (opt) {
         // If no client id found the send it to the other routes
         const clientId = GetClientIdFromHostname(hostname);
         if (!clientId) {
-            debug('Client request: "%s" host not found  - redirecting to main handler', hostname);
-
             // We need the JSON body for the client api ONLY and we dont want to include a million other modules just for this data so this is a quick and fast hack
-            if (req.url.indexOf('/api/clients/') == 0 && req.method == 'POST' && req.headers['content-type'] == 'application/json') {
+            if (req.url.indexOf('/api/clients/') == 0 && req.method == 'POST' && req.headers['content-type'].indexOf('application/json') == 0) {
+                debug('API body client POST');
                 if (!doWeHaveClientsList()) {
                     res.statusCode = 404;
                     res.end(fs.readFileSync(dashFolder + '404.html'));
@@ -836,6 +917,7 @@ export default function (opt) {
                     return;
                 });
             } else {
+                debug('Client request: "%s" host not found  - redirecting to main handler', hostname);
                 appCallback(req, res);
             }
             return;

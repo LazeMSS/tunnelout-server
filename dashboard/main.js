@@ -33,10 +33,26 @@ var templates = {
     }
 };
 
+var clientEditSet = {
+    hostname : {
+        type : 'text',
+        name : 'Hostname'
+    },
+    email : {
+        type: 'email',
+        name: 'E-mail'
+    },
+    name :{
+        type: 'text',
+        name: 'Name'
+    }
+}
+
 // Hackish
 var noCpus = 0;
 var headerModal = null;
 var confirmModal = null;
+var clientEditor = null;
 var clientTimer = null;
 var adminTimer = null;
 var isAdmin = false;
@@ -62,6 +78,7 @@ $(function () {
     // Create modal
     headerModal = new bootstrap.Modal(document.getElementById('headerinspect'));
     confirmModal = new bootstrap.Modal(document.getElementById('confirmDialog'));
+    clientEditor = new bootstrap.Modal(document.getElementById('clientEditor'));
 
     if (cookie == 'client') {
         $('a.navbar-brand').on('click', function (event) {
@@ -138,6 +155,137 @@ function apiGeneric(url, setmethod, callbackf) {
             ajaxError('Failed to call/process the API on: ' + url, error + '\nMethod:' + setmethod);
         });
 }
+
+function showClientEditor(){
+    $('#clientTableEditor tbody , #clientTableEditor thead').empty();
+    $('#clientTableView').show();
+    $('#clientEditForm').hide();
+
+    var trhead = $('<tr>').appendTo('#clientTableEditor thead');
+    $.each(clientEditSet, function(refKey, refSet){
+        trhead.append('<th>'+refSet.name+'</th>');
+    });
+    trhead.append('<th>Actions</th>');
+    fetchData('/api/clients/', function (data) {
+        $.each(data, function (key, usrData) {
+            var trdata = $('<tr data-skey="'+key+'">').appendTo('#clientTableEditor tbody');
+            $.each(clientEditSet, function(refKey, refSet){
+                trdata.append('<td data-key="'+refKey+'">'+usrData[refKey]+'</td>');
+            });
+            // Actions
+            trdata.append(`<td>
+                <div class="btn-group" role="group">
+                    <button type="button" title="Edit/save" class="clientEdit btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></button>
+                    <button type="button" title="Delete client" class="clientTrash btn btn-sm btn-outline-primary"><i class="bi bi-trash"></i></button>
+                </div></td>`);
+        });
+
+        $('#newClient').off('click').on('click',function(event){
+            clientEdit(null,null);
+        });
+
+        $('#clientTableEditor tbody button.clientEdit').off('click').on('click',function(event){
+            var skey = $(this).closest('tr').data('skey');
+            clientEdit(data[skey],skey);
+        });
+        $('#clientTableEditor tbody button.clientTrash').off('click').on('click',function(event){
+            $('#clientEditor').addClass('confirmOpen');
+            var skey = $(this).closest('tr').data('skey');
+            var hostname = data[skey].hostname;
+            showConfirm('<i class="bi bi-trash me-1"></i>Confirm delete&hellip;', 'Are you sure you want to delete the client "'+hostname+'"?', function (result) {
+                $('#clientEditor').removeClass('confirmOpen');
+                if (result) {
+                    apiGeneric('/api/clients/' + hostname, 'DELETE', function (data) {
+                        showClientEditor();
+                    });
+                }
+            });
+
+        });
+        clientEditor.show();
+    });
+}
+
+function clientEdit(data,skey = ''){
+    var inner = $('#clientEditForm div.innerEdit');
+    $('#clientEditForm fieldset').removeAttr('disabled');
+    inner.empty();
+    var sreq = '';
+    if (skey == null){
+        sreq = ' required';
+    }
+    inner.append(`
+        <div class="mb-3">
+            <label for="uedit_secret" class="form-label">New secret</label>
+            <input type="password" autocomplete="off" class="form-control" id="uedit_secret" name="newsecret" value="" placeholder="Secret token/login" ${sreq}>
+        </div>`);
+
+    // Build fields
+    $.each(clientEditSet, function(refKey, refSet){
+        var curD = '';
+        if (data != null && refKey in data) {
+            curD = data[refKey];
+        }
+        inner.append(`
+            <div class="mb-3">
+                <label for="uedit_${refKey}" class="form-label">${refSet.name}</label>
+                <input type="${refSet.type}" class="form-control" id="uedit_${refKey}" name="${refKey}" value="${curD}" placeholder="${refSet.name}" required>
+            </div>`);
+    });
+
+    // Back to overview
+    $('#clientEditBack').one('click', function (event) {
+        showClientEditor();
+    });
+
+    // Submit handling
+    $('#clientEditForm').off('submit').on('submit', function (event) {
+        $(this).addClass('was-validated');
+        if (!this.checkValidity()) {
+            event.preventDefault()
+            event.stopPropagation();
+            return false;
+        }
+
+        var json = {};
+        $('#clientEditForm input').each(function(){
+            json[$(this).attr('name')] = $(this).val();
+        });
+
+        // Update the existing secret?
+        if (skey != null){
+            json['secret'] = skey;
+            if (json['newsecret'] == ""){
+                delete json['newsecret'];
+            }
+        }else{
+            json['secret'] = json['newsecret'];
+            delete json['newsecret'];
+        }
+
+        $('#clientEditForm fieldset').attr('disabled',true);
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.open("POST", "/api/clients/"+$('#uedit_hostname').val());
+        xmlhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        xmlhttp.onreadystatechange = function () {
+            if(xmlhttp.readyState === XMLHttpRequest.DONE) {
+                var status = xmlhttp.status;
+                if (status === 0 || (status >= 200 && status < 400)) {
+                    showClientEditor();
+                }
+                $('#clientEditForm fieldset').removeAttr('disabled');
+            }
+        };
+        xmlhttp.send(JSON.stringify(json));
+        return false;
+
+    }).removeClass('was-validated');
+    $('#clientTableView').hide();
+    $('#clientEditForm').show();
+    $('#clientEditForm input')[0].focus();
+}
+
+
 
 function ajaxError(message, tech) {
     $('.ajax-alert').remove();

@@ -67,7 +67,7 @@
 		</div>
 
 		<div class="modal fade" id="confirmDialog" tabindex="-1">
-			<div class="modal-dialog">
+			<div class="modal-dialog shadow-lg">
 				<div class="modal-content">
 					<div class="modal-header">
 						<h5 class="modal-title"></h5>
@@ -77,6 +77,38 @@
 					<div class="modal-footer">
 						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
 						<button type="button" class="btn btn-primary" id="confirmDialogYes">Yes</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="modal fade" id="clientEditor" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+			<div class="modal-dialog modal-lg">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title"><i class="bi bi-pencil-fill"></i> Client editor</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<form novalidate id="clientEditForm" class="needs-validation">
+							<fieldset>
+								<div class="innerEdit"></div>
+								<button type="submit" class="btn btn-primary">Submit</button>
+								<button type="button" id="clientEditBack" class="btn btn-secondary"><i class="bi bi-caret-left-fill"></i>Back</button>
+							</fieldset>
+						</form>
+						<div class="table-responsive" id="clientTableView">
+							<table id="clientTableEditor" class="table table-sm table-bordered table-striped table-hover">
+								<thead></thead>
+								<tbody></tbody>
+							</table>
+							<div class="d-grid gap-2 col-3 mx-auto p-1">
+								<button type="button" id="newClient" class="btn btn-primary"><i class="bi bi-person-plus-fill me-2"></i>Create new</button>
+							</div>
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
 					</div>
 				</div>
 			</div>
