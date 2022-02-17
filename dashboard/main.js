@@ -802,3 +802,8 @@ function makeSafeStr(strv){
     strv = String(strv);
     return strv.replace(/\W/g, '');
 }
+
+function toogleDarkMOde(){
+ $('body').toggleClass('bg-secondary bg-light darkMode');
+ $('i.modeicon').toggleClass('bi-moon bi-sun');
+}
