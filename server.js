@@ -1,11 +1,6 @@
 /*
  TODO:
     Update README.md
-
-    Dashboard:
-        admin:
-            client editor/display
-            block/delete client in client list
 */
 import Koa from 'koa';
 import Router from 'koa-router';
@@ -460,7 +455,7 @@ export default function (opt) {
             if (apiBody == null || typeof apiBody != 'object' || Object.keys(apiBody).length === 0 || !Object.prototype.hasOwnProperty.call(apiBody, 'secret') || apiBody.secret == '') {
                 debug("Invalid api body");
                 ctx.status = 404;
-                ctx.body = 'Invalid JSON data';
+                ctx.body = { errorMsg: 'Invalid JSON data' };
                 return;
             }
 
@@ -474,7 +469,7 @@ export default function (opt) {
                 if (clientsList[cKey].hostname == ctx.params.client && cKey != curSecret) {
                     debug("Conflict - hostname(%s) reserved by another client!", ctx.params.client);
                     ctx.status = 409;
-                    ctx.body = 'Conflict - hostname reserved by another client!';
+                    ctx.body = { errorMsg: 'Conflict - hostname reserved by another client!' };
                     inputOk = false;
                     return false;
                 }
@@ -486,7 +481,7 @@ export default function (opt) {
                     if (apiBody.newsecret in clientsList) {
                         debug("Conflict - secret used by another client!");
                         ctx.status = 409;
-                        ctx.body = 'Conflict - secret used by another client!';
+                        ctx.body = { errorMsg: 'Conflict -  - secret used by another client!' };
                         inputOk = false;
                         return false;
                     }
@@ -510,7 +505,7 @@ export default function (opt) {
             clientsList[curSecret] = apiBody;
         }
         writeClients();
-        ctx.body = 'Client "' + clientID + '" addedd';
+        ctx.body = {'status' : 'Client "' + clientID + '" addedd'};
         debug('API clients added: %s', clientID);
         debug(ctx.body);
     });
@@ -549,8 +544,14 @@ export default function (opt) {
             customErrorWeb(ctx, 404);
             return;
         }
+
+        // Disconnect the user
+        const client = manager.getClient(clientid);
+        if (client) {
+            manager.disconnect(clientid);
+        }
         writeClients();
-        ctx.body = 'Client "' + clientid + '" deleted';
+        ctx.body = {'status' : 'Client "' + clientid + '" deleted'};
         debug(ctx.body);
     });
 
@@ -670,7 +671,7 @@ export default function (opt) {
         }
 
         manager.disconnect(clientID);
-        ctx.body = 'Client "' + clientID + '" disconnected';
+        ctx.body = {'status' : 'Client "' + clientID + '" disconnected'};
         debug(ctx.body);
     });
 

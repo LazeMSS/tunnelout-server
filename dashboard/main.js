@@ -37,7 +37,8 @@ var clientEditSet = {
     hostname : {
         type : 'text',
         name : 'Hostname'
-    },
+    }
+    /*,
     email : {
         type: 'email',
         name: 'E-mail'
@@ -45,7 +46,7 @@ var clientEditSet = {
     name :{
         type: 'text',
         name: 'Name'
-    }
+    }*/
 }
 
 // Hackish
@@ -126,47 +127,66 @@ function fetchData(url, callbackf) {
         .catch((error) => {
             $('#fetchSpinner').addClass('d-none');
             ajaxError('Failed to fetch/process data on: ' + url, error);
+            if (typeof callbackf == 'function') {
+                callbackf(null);
+            }
         });
 }
 
-function apiGeneric(url, setmethod, callbackf) {
+function apiGeneric(url, setmethod, callbackf, payload) {
     $('#mainSpinner').remove();
     $('#fetchSpinner').removeClass('d-none');
-
-    fetch(url, {
+    var options = {
         method: setmethod
-    })
-        .then(async (response) => {
-            const isJson = response.headers.get('content-type')?.includes('application/json');
-            const data = isJson ? await response.json() : await response.text();
+    }
+    if (payload != undefined){
+        options['headers'] = {'Content-Type' : 'application/json'};
+        options['body'] = JSON.stringify(payload)
+    }
 
-            $('#fetchSpinner').addClass('d-none');
-            if (!response.ok) {
-                var error = (data && data.message) || response.status;
-                error += ' ' + response.statusText;
-                return Promise.reject(error);
-            }
-            if (typeof callbackf == 'function') {
-                callbackf(data, response.ok);
-            }
-        })
-        .catch((error) => {
-            $('#fetchSpinner').addClass('d-none');
-            ajaxError('Failed to call/process the API on: ' + url, error + '\nMethod:' + setmethod);
-        });
+    fetch(url, options).then(async (response) => {
+        const isJson = response.headers.get('content-type')?.includes('application/json');
+        const data = isJson ? await response.json() : await response.text();
+
+        $('#fetchSpinner').addClass('d-none');
+        if (!response.ok) {
+            var error = (data && data.message) || response.status;
+            error += ' ' + response.statusText;
+            return Promise.reject(error);
+        }
+        if (typeof callbackf == 'function') {
+            callbackf(data, response.ok);
+        }
+
+    }).catch((error) => {
+        $('#fetchSpinner').addClass('d-none');
+        ajaxError('Failed to call/process the API on: ' + url, error + '\nMethod:' + setmethod);
+        if (typeof callbackf == 'function') {
+            callbackf(null);
+        }
+    });
 }
 
 function showClientEditor(){
-    $('#clientTableEditor tbody , #clientTableEditor thead').empty();
-    $('#clientTableView').show();
+    $('#clientTableEditor tbody').html('');
+    $('#clientTableEditor thead').html('');
     $('#clientEditForm').hide();
+    $('#clientTableView').prepend(`<div class="dloading p-4 d-flex justify-content-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>`);
 
-    var trhead = $('<tr>').appendTo('#clientTableEditor thead');
-    $.each(clientEditSet, function(refKey, refSet){
-        trhead.append('<th>'+refSet.name+'</th>');
-    });
-    trhead.append('<th>Actions</th>');
     fetchData('/api/clients/', function (data) {
+        $('#clientTableView .dloading').remove();
+        if (data == null){
+            return;
+        }
+        var trhead = $('<tr>').appendTo('#clientTableEditor thead');
+        $.each(clientEditSet, function(refKey, refSet){
+            trhead.append('<th>'+refSet.name+'</th>');
+        });
+        trhead.append('<th class="text-end">Actions</th>');
         $.each(data, function (key, usrData) {
             var trdata = $('<tr data-skey="'+key+'">').appendTo('#clientTableEditor tbody');
             $.each(clientEditSet, function(refKey, refSet){
@@ -174,7 +194,7 @@ function showClientEditor(){
             });
             // Actions
             trdata.append(`<td>
-                <div class="btn-group" role="group">
+                <div class="float-end btn-group" role="group">
                     <button type="button" title="Edit/save" class="clientEdit btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></button>
                     <button type="button" title="Delete client" class="clientTrash btn btn-sm btn-outline-primary"><i class="bi bi-trash"></i></button>
                 </div></td>`);
@@ -202,8 +222,9 @@ function showClientEditor(){
             });
 
         });
-        clientEditor.show();
+        $('#clientTableView').show();
     });
+    clientEditor.show();
 }
 
 function clientEdit(data,skey = ''){
@@ -221,10 +242,15 @@ function clientEdit(data,skey = ''){
         </div>`);
 
     // Build fields
+    var keysnotFound = [];
+    if (data != null){
+        keysnotFound = Object.keys(data);
+    }
     $.each(clientEditSet, function(refKey, refSet){
         var curD = '';
         if (data != null && refKey in data) {
             curD = data[refKey];
+            delete keysnotFound[keysnotFound.indexOf(refKey)];
         }
         inner.append(`
             <div class="mb-3">
@@ -232,6 +258,15 @@ function clientEdit(data,skey = ''){
                 <input type="${refSet.type}" class="form-control" id="uedit_${refKey}" name="${refKey}" value="${curD}" placeholder="${refSet.name}" required>
             </div>`);
     });
+    $.each(keysnotFound,function(item,val){
+        if (val != undefined){
+            inner.append(`
+            <div class="mb-3">
+                <label for="uedit_${val}" class="form-label">${sysToUsrTxt(val)}</label>
+                <input type="string" class="form-control" id="uedit_${val}" name="${val}" value="${data[val]}" placeholder="${sysToUsrTxt(val)}" required>
+            </div>`)
+        }
+    })
 
     // Back to overview
     $('#clientEditBack').one('click', function (event) {
@@ -264,19 +299,12 @@ function clientEdit(data,skey = ''){
         }
 
         $('#clientEditForm fieldset').attr('disabled',true);
-        var xmlhttp = new XMLHttpRequest();
-        xmlhttp.open("POST", "/api/clients/"+$('#uedit_hostname').val());
-        xmlhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        xmlhttp.onreadystatechange = function () {
-            if(xmlhttp.readyState === XMLHttpRequest.DONE) {
-                var status = xmlhttp.status;
-                if (status === 0 || (status >= 200 && status < 400)) {
-                    showClientEditor();
-                }
-                $('#clientEditForm fieldset').removeAttr('disabled');
-            }
-        };
-        xmlhttp.send(JSON.stringify(json));
+        // POST it
+        var hostname = $('#uedit_hostname').val();
+        apiGeneric('/api/clients/' + hostname, 'POST', function (data) {
+            showClientEditor();
+            loadAdmin(false);
+        },json);
         return false;
 
     }).removeClass('was-validated');
@@ -309,6 +337,9 @@ function loadClient(lastPath, pop) {
 
     // Get data and pop if successfull
     fetchData('/api/tunnels/' + lastPath, function (data) {
+        if (data == null){
+            return;
+        }
         if (pop) {
             history.pushState('/dashboard/c/' + lastPath, null, '/dashboard/c/' + lastPath + '/');
         }
@@ -331,6 +362,9 @@ function loadAdmin(pop) {
 
     // Get data and pop if successfull
     fetchData('/api/status', function (data) {
+        if (data == null){
+            return;
+        }
         if (pop) {
             history.pushState('/dashboard/', null, '/dashboard/');
         }
@@ -446,6 +480,7 @@ function buildDashCards(data, target) {
                 noclients = Object.keys(dataSet).length;
                 clon.find('.card-title').after('<h1 class="display-1 text-center" id="noclients">' + noclients + '</h1>');
                 clon.find('ul.list-group').replaceWith(buildAdminClientList(dataSet));
+                clon.find('div.card-body').append('<div class="position-absolute bottom-0 end-0 m-3"><button type="button" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil-fill me-1"></i>Edit clients</button></div>').find('button').on('click',function(){showClientEditor()});
             } else {
                 // Standard data
                 listGroup.append(buildUlItems(dataSet, 0, key));
@@ -473,7 +508,7 @@ function buildDashCards(data, target) {
         }
     });
 
-    // show search
+    // no clients found :/
     if (noclients == 0) {
         noclients += '<i class="position-absolute top-50 start-50 translate-middle w-100 d-block text-primar bi bi-emoji-neutral text-secondary text-opacity-25 hourglass" style="font-size:200%"></i>';
     }
@@ -565,7 +600,7 @@ function buildAdminClientList(dataSet) {
             return false;
         });
         discli.find('button.clientOpen').on('click', function (event) {
-            url = $('#datavalue_configuration_schema').text() + '://' + hostname + '.' + $('#datavalue_valid_hosts_0').text();
+            url = $('#datavalue_configuration_schema').text() + '://' + hostname + '.' + window.location.hostname;
             window.open(url);
         });
         trow.append(discli);
@@ -721,6 +756,9 @@ function buildUlItems(obj, level = 0, parent = null) {
 }
 
 function buildClientDash(data) {
+    if (data == null){
+        return;
+    }
     $('#serverdashboard').addClass('d-none');
     $('#mainheader').text(data.basic.id);
     buildDashCards(data, 'clientdashboard');
@@ -732,6 +770,9 @@ function buildClientDash(data) {
 }
 
 function buildAdminDash(data) {
+    if (data == null){
+        return;
+    }
     $('#backBtn').addClass('d-none');
     $('#clientdashboard').addClass('d-none');
     $('#mainheader').html('<i class="bi bi-shield-check me-1"></i>admin');
