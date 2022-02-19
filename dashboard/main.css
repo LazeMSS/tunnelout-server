@@ -36,3 +36,10 @@
 body.darkMode div.card,body.darkMode div.modal-content{
    filter: brightness(0.9);
 }
+
+@media (max-width: 575.98px) {
+   span.udatedata{
+   	display: block;
+		margin-top: 25px;
+	}
+}
