@@ -1,5 +1,7 @@
 /*
  TODO:
+    Force reload dashboard button
+
     Update README.md
 */
 import Koa from 'koa';
@@ -41,6 +43,7 @@ export default function (opt) {
     const dashFolder = cwd() + '/dashboard/';
     const dashboardUser = opt.dashboardUser;
     const dashboardPass = opt.dashboardPass;
+    const maxConsPerClient = opt.maxClientConnections || 1;
 
     const manager = new ClientManager({
         maxSockets: opt.maxSockets,
@@ -54,6 +57,7 @@ export default function (opt) {
 
     let clientsList = {};
     let clientsListLoaded = false;
+    let clientConnectList = {};
 
     let apiBody = null;
 
@@ -749,8 +753,12 @@ export default function (opt) {
 
         let reqHostname = null;
         let clientReqHostName = null;
+        let cKey = null;
         if ('x-client-key' in ctx.request.headers && ctx.request.headers['x-client-key'] != undefined) {
             clientReqHostName = getClientHostnameFromClientsList(ctx.request.headers['x-client-key']);
+            if (clientReqHostName != null){
+                cKey = ctx.request.headers['x-client-key'];
+            }
         }
 
         // classic methods first
@@ -781,7 +789,7 @@ export default function (opt) {
             }
         }
 
-        // No classic name found
+        // Anything found
         if (reqHostname == null) {
             if (clientReqHostName != null) {
                 reqHostname = clientReqHostName;
@@ -789,11 +797,46 @@ export default function (opt) {
                 reqHostname = hri.random();
             }
         }
+
         // forbidden hostname
         if (reqHostname.toLowerCase() == 'api') {
             ctx.status = 403;
             ctx.body = { errorMsg: '"api" is not allowed as hostname' };
             return;
+        }
+
+        // do we already have a client with the requested name and we don't allow other names (clientOverride) then fail - if we don't fail then the client manager will pick a random name
+        if (clientReqHostName != null && manager.hasClient(reqHostname) && clientOverride === false) {
+            debug('Suddomain "'+clientReqHostName+'" is already in use so we exit.');
+            ctx.status = 409;
+            ctx.body = { errorMsg: 'Suddomain "'+clientReqHostName+'" is already in use.' };
+            return;
+        }
+
+        // keep track of connection key client key
+        if (cKey != null) {
+            let curNo = 0;
+            if (cKey in clientConnectList){
+                // clean up and dead connections
+                clientConnectList[cKey].forEach(function (seenCkey,indx) {
+                    // Dead connection
+                    if (!manager.hasClient(seenCkey)){
+                        delete clientConnectList[cKey][indx];
+                    }
+                });
+                // Clean the dead array indexes
+                clientConnectList[cKey] = clientConnectList[cKey].filter(n => n);
+                curNo = clientConnectList[cKey].length;
+            }
+            // too many connections
+            if (maxConsPerClient > 0 && curNo >= maxConsPerClient){
+                debug('%s has %i active connections - max allowed is %i. Exiting',cKey,curNo, maxConsPerClient);
+                ctx.status = 406;
+                ctx.body = { errorMsg: 'Your client account has exhausted the maximum number of connections/tunnels: '+maxConsPerClient };
+                return;
+            }else{
+                debug('%s has %i active connections - max allowed is %i so we will allow one more',cKey,curNo, maxConsPerClient);
+            }
         }
 
         // Set basic auth if requested to do so
@@ -811,11 +854,21 @@ export default function (opt) {
 
         // Status
         if (reqHostname == info.id) {
-            debug('New endpoint: Made new client with requested id: "%s"', info.id);
+            debug('New endpoint: Made new client with the requested id: "%s"', info.id);
         } else {
-            // todo die here if clientOverride == false
             debug('New endpoint: Made new client with random id: "%s"', info.id);
         }
+
+
+        // Add the new entry to client count list
+        if (cKey != null) {
+            if (cKey in clientConnectList){
+                clientConnectList[cKey].push(info.id);
+            }else{
+                clientConnectList[cKey] = [info.id];
+            }
+        }
+
 
         // Set server header - the client validates against this
         ctx.set('server', packageInfo.name + '/' + packageInfo.version);

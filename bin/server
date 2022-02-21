@@ -71,6 +71,7 @@ program
     .addOption(new Option('-pf, --key-file <path>', 'Path to certificate key file (privkey.pem) for the HTTPS server. Required when running secure server').env('TO_KEY_FILE'))
     .addOption(new Option('-cf, --cert-file <path>', 'Path to certificate chain/cert file (fullchain.pem) for the HTTPS server. Required when running secure server').env('TO_CERT_FILE'))
     .addOption(new Option('-cl, --clients-file <path>', 'Path to clients list (JSON format) file containing client name and their "reserved" host name').env('TO_CLIENTS_FILE'))
+    .addOption(new Option('-mc, --max-client-connections <number>', 'When using the clients list and allowing client-override how many tunnels is a client allowed to make').default(1).env('TO_MAX_CLIENT_CONNECTIONS'))
     .addOption(new Option('-co, --client-override', 'Set this to allow the client to override its assigned subdomain when using the clients file method').default(false).env('TO_CLIENT_OVERRIDE'))
     .addOption(new Option('-ak, --apikey <string>', 'The value that must be sent in the x-api-key/authorization header of the API request to be validated. False will disable the API.').default(false).env('TO_APIKEY'))
     .addOption(new Option('-du, --dashboard-user <string>', 'The username used for authorization to access the main admin dashboard').env('TO_DASHBOARD_USER'))
