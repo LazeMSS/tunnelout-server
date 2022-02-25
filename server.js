@@ -1,7 +1,5 @@
 /*
  TODO:
-    Force reload dashboard button
-
     Update README.md
 */
 import Koa from 'koa';

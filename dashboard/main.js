@@ -58,6 +58,8 @@ var clientTimer = null;
 var adminTimer = null;
 var isAdmin = false;
 
+var curRefresh = function(){};
+
 // Main load
 $(function () {
     window.addEventListener('popstate', function (e) {
@@ -328,7 +330,7 @@ function ajaxError(message, tech) {
     $('#mainContainer').prepend(alertMSG);
 }
 
-function loadClient(lastPath, pop) {
+function loadClient(cPath, pop) {
     $('#clientdashboard').empty();
     if (adminTimer != null) {
         window.clearInterval(adminTimer);
@@ -336,21 +338,22 @@ function loadClient(lastPath, pop) {
     }
 
     // Get data and pop if successfull
-    fetchData('/api/tunnels/' + lastPath, function (data) {
+    fetchData('/api/tunnels/' + cPath, function (data) {
         if (data == null){
             return;
         }
         if (pop) {
-            history.pushState('/dashboard/c/' + lastPath, null, '/dashboard/c/' + lastPath + '/');
+            history.pushState('/dashboard/c/' + cPath, null, '/dashboard/c/' + cPath + '/');
         }
         buildClientDash(data);
     });
 
     // server status automatic refresh
     if (clientTimer == null) {
-        clientTimer = setInterval(function () {
-            fetchData('/api/tunnels/' + lastPath, buildClientDash);
-        }, 30000);
+        curRefresh = function() {
+            fetchData('/api/tunnels/' + cPath, buildClientDash);
+        }
+        clientTimer = setInterval(curRefresh, 30000);
     }
 }
 
@@ -373,9 +376,10 @@ function loadAdmin(pop) {
 
     // server status automatic refresh
     if (adminTimer == null) {
-        adminTimer = setInterval(function () {
+        curRefresh = function() {
             fetchData('/api/status', buildAdminDash);
-        }, 30000);
+        }
+        adminTimer = setInterval(curRefresh, 30000);
     }
 }
 
