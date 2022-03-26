@@ -706,15 +706,15 @@ export default function (opt) {
 
     // root endpoint for new/random clients
     app.use(async (ctx, next) => {
-        const reqpath = ctx.request.path;
-        debug('New endpoint: %s', reqpath);
-        const parts = reqpath.split('/');
-
         // Skip if forbidden
         if (ctx.status == 403) {
             await next();
             return;
         }
+
+        // Old style domain requests
+        const reqpath = ctx.request.path;
+        const parts = reqpath.split('/');
 
         // Did we request a new endpoint or not
         if ((ctx.query['new'] == undefined && reqpath === '/') || parts.length !== 2 || parts[1] == 'favicon.ico' || parts[1] == 'robots.txt') {
@@ -756,18 +756,14 @@ export default function (opt) {
             clientReqHostName = getClientHostnameFromClientsList(ctx.request.headers['x-client-key']);
             if (clientReqHostName != null){
                 cKey = ctx.request.headers['x-client-key'];
+                debug('New endpoint: new school request for %s', clientReqHostName);
             }
         }
 
         // classic methods first
         if (reqpath !== '/') {
-            const parts = reqpath.split('/');
-            if (parts.length !== 2 || parts[1] == 'favicon.ico') {
-                await next();
-                return;
-            }
-
             reqHostname = parts[1];
+            debug('New endpoint: old school request for %s', reqHostname);
             // limit requested hostnames to 63 characters
             if (!/^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(reqHostname)) {
                 debug('New endpoint: Invalid subdomain requested, "%s"', reqHostname);
@@ -917,11 +913,12 @@ export default function (opt) {
 
     // main data handling between client and server
     server.on('request', (req, res) => {
-        debug('Client request');
         // without a hostname, we won"t know who the request is for
         const hostname = req.headers.host;
+        const clientIPadr = req.socket.remoteAddress;
+
         if (!hostname) {
-            debug('Client request: missing host name');
+            debug('Client(%s) request: missing host name',clientIPadr);
             res.statusCode = 400;
             res.end('Host header is required');
             return;
@@ -929,7 +926,7 @@ export default function (opt) {
 
         // main request - no need to do anymore
         if (hostname == opt.domain) {
-            debug('Client request: "%s" is the main host request - redirecting to main handler', hostname);
+            debug('Client(%s) request: "%s" is the main host request - redirecting to creation handler',clientIPadr, hostname);
             appCallback(req, res);
             return;
         }
@@ -969,7 +966,7 @@ export default function (opt) {
                     return;
                 });
             } else {
-                debug('Client request: "%s" host not found  - redirecting to main handler', hostname);
+                debug('Client(%s) request: "%s" host not found  - redirecting to main handler', clientIPadr, hostname);
                 appCallback(req, res);
             }
             return;
@@ -978,7 +975,7 @@ export default function (opt) {
         // Get client data/info
         const client = manager.getClient(clientId);
         if (!client) {
-            debug('Client request: "%s" client not found!', clientId);
+            debug('Client(%s) request: "%s" client not found!', clientIPadr, clientId);
             res.statusCode = 404;
             res.end(fs.readFileSync(dashFolder + '404.html'));
             return;
@@ -990,14 +987,14 @@ export default function (opt) {
         if (authData != null) {
             // Can we auth?
             if (!('authorization' in req.headers) || authThis(req.headers['authorization'], authData.usr, authData.pass) == false) {
-                debug('Client request: auth missing!');
+                debug('Client(%s) request: auth missing!', clientIPadr);
                 res.statusCode = 401;
                 res.setHeader('WWW-Authenticate', 'Basic realm="tunnelOut"');
                 res.end(fs.readFileSync(dashFolder + '401.html'));
                 return;
             }
         }
-        debug('Client request: %s:%s', clientId, req.url);
+        debug('Client(%s) request: %s:%s', clientIPadr, clientId, req.url);
         client.handleRequest(req, res);
     });
 
