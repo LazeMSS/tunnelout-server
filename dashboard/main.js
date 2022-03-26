@@ -484,7 +484,9 @@ function buildDashCards(data, target) {
                 noclients = Object.keys(dataSet).length;
                 clon.find('.card-title').after('<h1 class="display-1 text-center" id="noclients">' + noclients + '</h1>');
                 clon.find('ul.list-group').replaceWith(buildAdminClientList(dataSet));
-                clon.find('div.card-body').append('<div class="position-absolute top-0 end-0 m-3 pe-3"><button type="button" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil-fill me-1"></i>Edit clients</button></div>').find('button').on('click',function(){showClientEditor()});
+                var editClients = $('<div class="position-absolute top-0 end-0 m-3 pe-3"><button type="button" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil-fill me-1"></i>Edit clients</button></div>');
+                editClients.find('button').on('click',function(){showClientEditor()});
+                clon.find('div.card-body').append(editClients);
             } else {
                 // Standard data
                 listGroup.append(buildUlItems(dataSet, 0, key));
