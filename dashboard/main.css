@@ -5,14 +5,15 @@
 	font-weight: normal;
 }
 .techdata{
-    font-family: var(--bs-font-monospace);
+	font-family: var(--bs-font-monospace);
 	font-size: 0.85em;
 	word-break: break-all;
 }
 
 #clientList{
-	max-height: 25vh;
+	max-height: calc(100% - 250px);
 	overflow-y: auto;
+	min-height: 200px;
 }
 
 .ajax-alert .ts{

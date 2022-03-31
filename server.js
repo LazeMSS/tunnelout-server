@@ -455,7 +455,7 @@ export default function (opt) {
             clientsList.push(clientID);
         } else {
             if (apiBody == null || typeof apiBody != 'object' || Object.keys(apiBody).length === 0 || !Object.prototype.hasOwnProperty.call(apiBody, 'secret') || apiBody.secret == '') {
-                debug("Invalid api body");
+                debug('Invalid api body');
                 ctx.status = 404;
                 ctx.body = { errorMsg: 'Invalid JSON data' };
                 return;
@@ -469,7 +469,7 @@ export default function (opt) {
             Object.keys(clientsList).forEach(function (cKey) {
                 // Another client with that hostname and not the same secret/unique key
                 if (clientsList[cKey].hostname == ctx.params.client && cKey != curSecret) {
-                    debug("Conflict - hostname(%s) reserved by another client!", ctx.params.client);
+                    debug('Conflict - hostname(%s) reserved by another client!', ctx.params.client);
                     ctx.status = 409;
                     ctx.body = { errorMsg: 'Conflict - hostname reserved by another client!' };
                     inputOk = false;
@@ -481,7 +481,7 @@ export default function (opt) {
             if (Object.prototype.hasOwnProperty.call(apiBody, 'newsecret')) {
                 if (apiBody.newsecret != '' && apiBody.newsecret != curSecret) {
                     if (apiBody.newsecret in clientsList) {
-                        debug("Conflict - secret used by another client!");
+                        debug('Conflict - secret used by another client!');
                         ctx.status = 409;
                         ctx.body = { errorMsg: 'Conflict -  - secret used by another client!' };
                         inputOk = false;
@@ -507,7 +507,7 @@ export default function (opt) {
             clientsList[curSecret] = apiBody;
         }
         writeClients();
-        ctx.body = {'status' : 'Client "' + clientID + '" addedd'};
+        ctx.body = { status: 'Client "' + clientID + '" addedd' };
         debug('API clients added: %s', clientID);
         debug(ctx.body);
     });
@@ -542,7 +542,7 @@ export default function (opt) {
                 }
             });
         }
-        if (!found){
+        if (!found) {
             customErrorWeb(ctx, 404);
             return;
         }
@@ -553,7 +553,7 @@ export default function (opt) {
             manager.disconnect(clientid);
         }
         writeClients();
-        ctx.body = {'status' : 'Client "' + clientid + '" deleted'};
+        ctx.body = { status: 'Client "' + clientid + '" deleted' };
         debug(ctx.body);
     });
 
@@ -673,7 +673,7 @@ export default function (opt) {
         }
 
         manager.disconnect(clientID);
-        ctx.body = {'status' : 'Client "' + clientID + '" disconnected'};
+        ctx.body = { status: 'Client "' + clientID + '" disconnected' };
         debug(ctx.body);
     });
 
@@ -754,7 +754,7 @@ export default function (opt) {
         let cKey = null;
         if ('x-client-key' in ctx.request.headers && ctx.request.headers['x-client-key'] != undefined) {
             clientReqHostName = getClientHostnameFromClientsList(ctx.request.headers['x-client-key']);
-            if (clientReqHostName != null){
+            if (clientReqHostName != null) {
                 cKey = ctx.request.headers['x-client-key'];
                 debug('New endpoint: new school request for %s', clientReqHostName);
             }
@@ -801,35 +801,36 @@ export default function (opt) {
 
         // do we already have a client with the requested name and we don't allow other names (clientOverride) then fail - if we don't fail then the client manager will pick a random name
         if (clientReqHostName != null && manager.hasClient(reqHostname) && clientOverride === false) {
-            debug('Suddomain "'+clientReqHostName+'" is already in use so we exit.');
+            debug('Suddomain "' + clientReqHostName + '" is already in use so we exit.');
             ctx.status = 409;
-            ctx.body = { errorMsg: 'Suddomain "'+clientReqHostName+'" is already in use.' };
+            ctx.body = { errorMsg: 'Suddomain "' + clientReqHostName + '" is already in use.' };
             return;
         }
 
         // keep track of connection key client key
         if (cKey != null) {
             let curNo = 0;
-            if (cKey in clientConnectList){
+            if (cKey in clientConnectList) {
                 // clean up and dead connections
-                clientConnectList[cKey].forEach(function (seenCkey,indx) {
+                clientConnectList[cKey].forEach(function (seenCkey, indx) {
                     // Dead connection
-                    if (!manager.hasClient(seenCkey)){
+                    if (!manager.hasClient(seenCkey)) {
                         delete clientConnectList[cKey][indx];
                     }
                 });
                 // Clean the dead array indexes
-                clientConnectList[cKey] = clientConnectList[cKey].filter(n => n);
+                clientConnectList[cKey] = clientConnectList[cKey].filter((n) => n);
                 curNo = clientConnectList[cKey].length;
             }
+
             // too many connections
-            if (maxConsPerClient > 0 && curNo >= maxConsPerClient){
-                debug('%s has %i active connections - max allowed is %i. Exiting',cKey,curNo, maxConsPerClient);
+            if (maxConsPerClient > 0 && curNo >= maxConsPerClient) {
+                debug('%s has %i active connections - max allowed is %i. Exiting', cKey, curNo, maxConsPerClient);
                 ctx.status = 406;
-                ctx.body = { errorMsg: 'Your client account has exhausted the maximum number of connections/tunnels: '+maxConsPerClient };
+                ctx.body = { errorMsg: 'Your client account has exhausted the maximum number of connections/tunnels: ' + maxConsPerClient };
                 return;
-            }else{
-                debug('%s has %i active connections - max allowed is %i so we will allow one more',cKey,curNo, maxConsPerClient);
+            } else {
+                debug('%s has %i active connections - max allowed is %i so we will allow one more', cKey, curNo, maxConsPerClient);
             }
         }
 
@@ -853,16 +854,14 @@ export default function (opt) {
             debug('New endpoint: Made new client with random id: "%s"', info.id);
         }
 
-
         // Add the new entry to client count list
         if (cKey != null) {
-            if (cKey in clientConnectList){
+            if (cKey in clientConnectList) {
                 clientConnectList[cKey].push(info.id);
-            }else{
+            } else {
                 clientConnectList[cKey] = [info.id];
             }
         }
-
 
         // Set server header - the client validates against this
         ctx.set('server', packageInfo.name + '/' + packageInfo.version);
@@ -918,7 +917,7 @@ export default function (opt) {
         const clientIPadr = req.socket.remoteAddress;
 
         if (!hostname) {
-            debug('Client(%s) request: missing host name',clientIPadr);
+            debug('Client(%s) request: missing host name', clientIPadr);
             res.statusCode = 400;
             res.end('Host header is required');
             return;
@@ -926,7 +925,7 @@ export default function (opt) {
 
         // main request - no need to do anymore
         if (hostname == opt.domain) {
-            debug('Client(%s) request: "%s" is the main host request - redirecting to creation handler',clientIPadr, hostname);
+            debug('Client(%s) request: "%s" is the main host request - redirecting to creation handler', clientIPadr, hostname);
             appCallback(req, res);
             return;
         }
