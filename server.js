@@ -31,6 +31,7 @@ export default function (opt) {
     const publicServer = opt.publicServer || false;
     const clientOverride = opt.clientOverride || false;
     const apiKey = opt.apikey || false;
+    const kicksameip = opt.kicksameip || false;
 
     const keyFile = opt.keyFile;
     const certFile = opt.certFile;
@@ -810,12 +811,17 @@ export default function (opt) {
         // keep track of connection key client key
         if (cKey != null) {
             let curNo = 0;
+            var kickClient = null;
             if (cKey in clientConnectList) {
                 // clean up and dead connections
                 clientConnectList[cKey].forEach(function (seenCkey, indx) {
                     // Dead connection
                     if (!manager.hasClient(seenCkey)) {
                         delete clientConnectList[cKey][indx];
+                    } else {
+                        if (kicksameip == true && kickClient == null && manager.getClient(seenCkey).ipAdr == ctx.request.ip) {
+                            kickClient = seenCkey;
+                        }
                     }
                 });
                 // Clean the dead array indexes
@@ -825,10 +831,15 @@ export default function (opt) {
 
             // too many connections
             if (maxConsPerClient > 0 && curNo >= maxConsPerClient) {
-                debug('%s has %i active connections - max allowed is %i. Exiting', cKey, curNo, maxConsPerClient);
-                ctx.status = 406;
-                ctx.body = { errorMsg: 'Your client account has exhausted the maximum number of connections/tunnels: ' + maxConsPerClient };
-                return;
+                if (kicksameip == true && kickClient != null) {
+                    debug('%s has %i active connections - max allowed is %i. We will kick the existing "%s"', cKey, curNo, maxConsPerClient, kickClient);
+                    manager.disconnect(kickClient);
+                } else {
+                    debug('%s has %i active connections - max allowed is %i. Exiting', cKey, curNo, maxConsPerClient);
+                    ctx.status = 406;
+                    ctx.body = { errorMsg: 'Your client account has exhausted the maximum number of connections/tunnels: ' + maxConsPerClient };
+                    return;
+                }
             } else {
                 debug('%s has %i active connections - max allowed is %i so we will allow one more', cKey, curNo, maxConsPerClient);
             }

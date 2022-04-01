@@ -66,6 +66,7 @@ program
     .addOption(new Option('-l, --landing <string>', 'The landing page to redirect from root domain access').default('https://google.com').env('TO_LANDING'))
     .addOption(new Option('-c, --clientvalid <string>', 'Client agent string to validate against').default('tunnelout').env('TO_CLIENTVALID'))
     .addOption(new Option('-i, --insecure', 'Use this flag to indicate tunnel over insecure http').default(false).env('TO_INSECURE'))
+    .addOption(new Option('-k, --kicksameip', 'If an new connection is requested from same ip and same client id the allow kick/disconnect the existing client').default(false).env('TO_KICKSAMEIP'))
     .addOption(new Option('-nr, --nohttpredir', 'If set and running a secure/https server the server won\'t redirect http traffic to https').default(false).env('TO_NOHTTPREDIR'))
     .addOption(new Option('-ps, --public-server','If set it allows anyone to connect. If set the client has to provide a valid client key in then x-client-key header - (client keys are stored in the --clients-file)').default(false).env('TO_PUBLIC_SERVER'))
     .addOption(new Option('-pf, --key-file <path>', 'Path to certificate key file (privkey.pem) for the HTTPS server. Required when running secure server').env('TO_KEY_FILE'))
