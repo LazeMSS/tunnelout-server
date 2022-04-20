@@ -9,8 +9,8 @@
     "url": "git@github.com:LazeMSS/tunnelout-server.git"
   },
   "dependencies": {
-    "commander": "9.0.0",
-    "debug": "4.3.3",
+    "commander": "9.2.0",
+    "debug": "4.3.4",
     "esm": "3.2.25",
     "human-readable-ids": "1.0.4",
     "koa": "2.13.4",
@@ -27,7 +27,7 @@
     "start": "node -r esm ./bin/server"
   },
   "devDependencies": {
-    "eslint-config-prettier": "8.3.0",
+    "eslint-config-prettier": "8.5.0",
     "eslint-plugin-prettier": "4.0.0"
   }
 }
