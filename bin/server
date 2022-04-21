@@ -23,10 +23,6 @@ function stringIsAValidUrl(s) {
     }
 }
 
-function consoleError(str) {
-    console.error('\x1b[1;37m%s\x1b[0m', 'Input error:', '\x1b[0;31m' + str + '\x1b[0m' + EOL);
-}
-
 function fileAccess(strFile) {
     try {
         fs.accessSync(strFile, fs.constants.R_OK);
@@ -57,11 +53,15 @@ function optionToParam(str) {
     );
 }
 
+program.showHelpAfterError();
+program.showSuggestionAfterError();
+program.version(version);
+
 program
     .usage('--port <number> [options]')
     .addOption(new Option('-p, --port [number]', 'Listen on this port for outside requests aka public port').default(443).env('TO_PORT').makeOptionMandatory())
     .addOption(new Option('-a, --ipaddress <number>', 'IP address to bind to').default('0.0.0.0').env('TO_IPADDRESS'))
-    .addOption(new Option('-d, --domain <string>','Specify the base domain name. This is optional if hosting tunnelOut from a regular example.com domain. This is required if hosting a tunnelOut server from a subdomain (i.e. subdomain.example.dom where clients will be client-app.subdomain.example.com').env('TO_DOMAIN'))
+    .addOption(new Option('-d, --domain <string>','Specify the base domain name. This is optional if hosting tunnelOut from a regular example.com domain.' + EOL + 'This is required if hosting a tunnelOut server from a subdomain (i.e. subdomain.example.dom where clients will be client-app.subdomain.example.com').env('TO_DOMAIN'))
     .addOption(new Option('-m, --max-sockets <number>', 'Maximum number of tcp sockets each client is allowed to establish at one time (the tunnels)').default(10).env('TO_MAX_SOCKETS'))
     .addOption(new Option('-l, --landing <string>', 'The landing page to redirect from root domain access').default('https://google.com').env('TO_LANDING'))
     .addOption(new Option('-c, --clientvalid <string>', 'Client agent string to validate against').default('tunnelout').env('TO_CLIENTVALID'))
@@ -76,8 +76,8 @@ program
     .addOption(new Option('-co, --client-override', 'Set this to allow the client to override its assigned subdomain when using the clients file method').default(false).env('TO_CLIENT_OVERRIDE'))
     .addOption(new Option('-ak, --apikey <string>', 'The value that must be sent in the x-api-key/authorization header of the API request to be validated. False will disable the API.').default(false).env('TO_APIKEY'))
     .addOption(new Option('-du, --dashboard-user <string>', 'The username used for authorization to access the main admin dashboard').env('TO_DASHBOARD_USER'))
-    .addOption(new Option('-dp, --dashboard-pass <string>', 'The password used for authorization to access the main admin dashboard').env('TO_DASHBOARD_PASS'))
-    .version(version);
+    .addOption(new Option('-dp, --dashboard-pass <string>', 'The password used for authorization to access the main admin dashboard').env('TO_DASHBOARD_PASS'));
+
 program.parse(process.argv);
 const options = program.opts();
 
@@ -106,8 +106,7 @@ Object.entries(process.env).forEach(function ([key, value]) {
                 }
             }
             if (envBoolFail) {
-                consoleError('Invalid ENV argument for ' + key + ' value "' + value + '" is not a boolean value');
-                program.help({ error: true });
+                program.error('Invalid ENV argument for ' + key + ' value "' + value + '" is not a boolean value');
             }
         }
         if (value === '' && program.getOptionValueSource(optKey) == 'env') {
@@ -123,43 +122,38 @@ Object.entries(options).forEach(function ([key, value]) {
 
 options.port = Number(options.port);
 if (isNaN(options.port)) {
-    consoleError('Invalid argument: "port" must be a number');
-    program.help({ error: true });
+    program.error('Invalid argument: "port" must be a number');
 }
 if (options.maxSockets != undefined) {
     options.maxSockets = Number(options.maxSockets);
     if (isNaN(options.maxSockets) || options.maxSockets <= 0) {
-        consoleError('Invalid argument: "max-sockets" must be a positive number');
-        program.help({ error: true });
+        program.error('Invalid argument: "max-sockets" must be a positive number');
     }
 }
 
 // check landing page url
 if (options.landing != undefined && !stringIsAValidUrl(options.landing)) {
-    consoleError('Invalid argument: "landing" must be a valid URL');
-    program.help({ error: true });
+    program.error('Invalid argument: "landing" must be a valid URL');
 }
 
 if (options.ipaddress != undefined && options.ipaddress != 'localhost') {
     if (/^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$/.test(options.ipaddress) == false) {
-        consoleError('Invalid argument: "address" must be a valid IPv4');
-        program.help({ error: true });
+        program.error('Invalid argument: "address" must be a valid IPv4');
     }
 }
 
 // check dashboard login/auth for admin
 if (typeof options.dashboardUser !== typeof options.dashboardPass && (options.dashboardUser === undefined || options.dashboardPass === undefined)) {
-    consoleError('Both --dashboard-user and --dashboard-pass must be supplied if you want to use dashboard');
-    program.help({ error: true });
+    program.error('Both --dashboard-user and --dashboard-pass must be supplied if you want to use dashboard');
+
 }
 
 if (options.dashboardPass !== undefined && options.dashboardPass === options.dashboardUser) {
-    consoleError('--dashboard-user and --dashboard-pass parameters must be different!');
-    program.help({ error: true });
+    program.error('--dashboard-user and --dashboard-pass parameters must be different!');
 }
+
 if (options.dashboardPass !== undefined && /^(?=(.*[a-z]){3,})(?=(.*[A-Z]){2,})(?=(.*[0-9]){2,})(?=(.*[!@#$%^&*()\-__+.]){1,}).{8,}$/.test(options.dashboardPass) == false) {
-    consoleError(EOL + 'Insecure --dashboard-pass, minimmum is 8 chars long containing at least: 3 lowercaser chars, 2 uppercase chars, 2 numeric chars and one special char(!@#$%^&*()-__+.)');
-    program.help({ error: true });
+    program.error('Insecure --dashboard-pass, minimmum is 8 chars long containing at least: 3 lowercaser chars, 2 uppercase chars, 2 numeric chars and one special char(!@#$%^&*()-__+.)');
 }
 
 let fileChecks = {};
@@ -178,13 +172,11 @@ Object.entries(fileChecks).forEach(function ([optKey, value]) {
     if (options[optKey] !== undefined) {
         let filChk = fileAccess(options[optKey]);
         if (filChk !== true) {
-            consoleError('Invalid parameter for "' + optionToParam(optKey) + '", ' + filChk);
-            program.help({ error: true });
+            program.error('Invalid parameter for "' + optionToParam(optKey) + '", ' + filChk);
         }
         // mandatory
     } else if (value) {
-        consoleError('Missing file parameter for "' + optionToParam(optKey) + '"');
-        program.help({ error: true });
+        program.error('Missing file parameter for "' + optionToParam(optKey) + '"');
     }
 });
 // INPUT VALIDATION END ------------------------------------------------------------------------------------------------------
