@@ -997,7 +997,19 @@ export default function (opt) {
         if (authData != null) {
             // Can we auth?
             if (!('authorization' in req.headers) || authThis(req.headers['authorization'], authData.usr, authData.pass) == false) {
-                debug('Client(%s) request: auth missing!', clientIPadr);
+                // Special cases for gfx
+                var gfxmatch = new RegExp(dashPath + '/gfx/[\\w-]+.png');
+                if (gfxmatch.test(req.url)) {
+                    const segments = new URL('http:/' + req.url).pathname.split('/');
+                    const last = segments.pop() || segments.pop();
+                    const filename = dashFolder + path.basename(last);
+                    if (fs.existsSync(filename)) {
+                        res.setHeader('content-type', 'image/png');
+                        res.end(fs.readFileSync(filename));
+                        return;
+                    }
+                }
+                debug('Client(%s) request: auth missing! for %s', clientIPadr, req.url);
                 res.statusCode = 401;
                 res.setHeader('WWW-Authenticate', 'Basic realm="tunnelOut"');
                 res.end(fs.readFileSync(dashFolder + '401.html'));
