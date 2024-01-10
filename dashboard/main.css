@@ -44,3 +44,8 @@ body.darkMode div.card,body.darkMode div.modal-content{
 		margin-top: 25px;
 	}
 }
+
+
+#clientTableView div.overflow-auto{
+	max-height: 50vh;
+}

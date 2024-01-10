@@ -1,3 +1,4 @@
+/* template design for the dashboard*/
 var templates = {
     os: {
         title: 'Operation system (OS)',
@@ -32,7 +33,7 @@ var templates = {
         collapse: true
     }
 };
-
+/* what fields to we store pr. client - hostname is minimum :) */
 var clientEditSet = {
     hostname : {
         type : 'text',
@@ -59,6 +60,25 @@ var adminTimer = null;
 var isAdmin = false;
 
 var curRefresh = function(){};
+
+// Random generator
+const rnd = (() => {
+    const gen = (min, max) => max++ && [...Array(max-min)].map((s, i) => String.fromCharCode(min+i));
+
+    const sets = {
+        num: gen(48,57),
+        alphaLower: gen(97,122),
+        alphaUpper: gen(65,90),
+        special: [...`~!@#$%^&*()_+-=[]\{}|;:'",./<>?`]
+    };
+
+    function* iter(len, set) {
+        if (set.length < 1) set = Object.values(sets).flat();
+        for (let i = 0; i < len; i++) yield set[Math.random() * set.length|0]
+    }
+
+    return Object.assign(((len, ...set) => [...iter(len, set.flat())].join('')), sets);
+})();
 
 // Main load
 $(function () {
@@ -238,9 +258,10 @@ function clientEdit(data,skey = ''){
         sreq = ' required';
     }
     inner.append(`
-        <div class="mb-3">
-            <label for="uedit_secret" class="form-label">New secret</label>
-            <input type="password" autocomplete="off" class="form-control" id="uedit_secret" name="newsecret" value="" placeholder="Secret token/login" ${sreq}>
+        <label for="uedit_secret" class="form-label">New secret/token</label>
+        <div class="mb-3 input-group">
+            <input type="text" autocomplete="one-time-code" class="form-control" id="uedit_secret" name="newsecret" value="" placeholder="Secret token/login" ${sreq}>
+            <button class="btn btn-outline-secondary" type="button" id="generatesecret" title="Auto generate new secret"><i class="bi bi-shuffle"></i></button>
         </div>`);
 
     // Build fields
@@ -269,6 +290,13 @@ function clientEdit(data,skey = ''){
             </div>`)
         }
     })
+
+    $('#generatesecret').off('click').on('click',function(event){
+        $('#uedit_secret').val(rnd(20, rnd.alphaUpper, rnd.alphaLower, rnd.num, rnd.special));
+        event.preventDefault()
+        event.stopPropagation();
+        return false;
+    });
 
     // Back to overview
     $('#clientEditBack').one('click', function (event) {
