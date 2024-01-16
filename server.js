@@ -31,7 +31,10 @@ export default function (opt) {
     const publicServer = opt.publicServer || false;
     const clientOverride = opt.clientOverride || false;
     const apiKey = opt.apikey || false;
-    const kicksameip = opt.kicksameip || false;
+    const logoURL = opt.logoUrl || '/dashboard/gfx/logo.png';
+    const favIconPng = opt.siteFaviconPng || '/dashboard/gfx/favicon-32x32.png';
+    const favIcon = opt.siteFavicon || 'favicon.ico';
+    const siteTitle = opt.siteTitle || 'tunnelOut';
 
     const keyFile = opt.keyFile;
     const certFile = opt.certFile;
@@ -177,6 +180,10 @@ export default function (opt) {
         webserveFile(ctx, code + '.html');
     }
 
+    function htmlReplacer(inputFilename){
+        return fs.readFileSync(inputFilename, 'utf-8').replace(/_LOGOURL_/g,logoURL).replace(/_SITETITLE_/g,siteTitle).replace(/_FAVICONPNG_/g,favIconPng).replace(/_FAVICON_/g,favIcon);
+    }
+
     /* [WEB DASHBOARD] ----------------------------------------------------------------------------------------------------------------------------------------------------------- */
 
     /* basic webserver*/
@@ -211,7 +218,11 @@ export default function (opt) {
             mimetype = mimeTypes[fileExt];
         }
         ctx.set('content-type', mimetype);
-        ctx.body = fs.readFileSync(filename);
+        if (fileExt == 'html' || fileExt == 'htm'){
+            ctx.body = htmlReplacer(filename);
+        }else{
+            ctx.body = fs.readFileSync(filename);
+        }
     }
 
     // web Auth check for a user
@@ -331,7 +342,7 @@ export default function (opt) {
         if (0 in ctx.params && ctx.params[0] != '') {
             file = ctx.params[0] + '.png';
         }
-        debug('Web - dash gfx: %s', file);
+        // debug('Web - dash gfx: %s', file);
         webserveFile(ctx, file);
     });
 
@@ -949,7 +960,7 @@ export default function (opt) {
                 debug('API body client POST');
                 if (!doWeHaveClientsList()) {
                     res.statusCode = 404;
-                    res.end(fs.readFileSync(dashFolder + '404.html'));
+                    res.end(htmlReplacer(dashFolder + '404.html'));
                     return;
                 }
 
@@ -987,7 +998,7 @@ export default function (opt) {
         if (!client) {
             debug('Client(%s) request: "%s" client not found!', clientIPadr, clientId);
             res.statusCode = 404;
-            res.end(fs.readFileSync(dashFolder + '404.html'));
+            res.end(htmlReplacer(dashFolder + '404.html'));
             return;
         }
 
@@ -1012,7 +1023,7 @@ export default function (opt) {
                 debug('Client(%s) request: auth missing! for %s', clientIPadr, req.url);
                 res.statusCode = 401;
                 res.setHeader('WWW-Authenticate', 'Basic realm="tunnelOut"');
-                res.end(fs.readFileSync(dashFolder + '401.html'));
+                res.end(htmlReplacer(dashFolder + '401.html'));
                 return;
             }
         }

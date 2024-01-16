@@ -76,7 +76,11 @@ program
     .addOption(new Option('-co, --client-override', 'Set this to allow the client to override its assigned subdomain when using the clients file method').default(false).env('TO_CLIENT_OVERRIDE'))
     .addOption(new Option('-ak, --apikey <string>', 'The value that must be sent in the x-api-key/authorization header of the API request to be validated. False will disable the API.').default(false).env('TO_APIKEY'))
     .addOption(new Option('-du, --dashboard-user <string>', 'The username used for authorization to access the main admin dashboard').env('TO_DASHBOARD_USER'))
-    .addOption(new Option('-dp, --dashboard-pass <string>', 'The password used for authorization to access the main admin dashboard').env('TO_DASHBOARD_PASS'));
+    .addOption(new Option('-dp, --dashboard-pass <string>', 'The password used for authorization to access the main admin dashboard').env('TO_DASHBOARD_PASS'))
+    .addOption(new Option('-st, --site-title <string>', 'Alternative site title for the server').env('TO_SITETITLE'))
+    .addOption(new Option('-sf, --site-favicon <string>', 'Alternative favicon the server').env('TO_FAVICON'))
+    .addOption(new Option('-sfp, --site-favicon-png <string>', 'Alternative favicon the server').env('TO_FAVICONPNG'))
+    .addOption(new Option('-lu, --logo-url <string>', 'Alternative image url to use as logo for the server').env('TO_LOGOURL'));
 
 program.parse(process.argv);
 const options = program.opts();

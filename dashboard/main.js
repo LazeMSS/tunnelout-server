@@ -292,7 +292,7 @@ function clientEdit(data,skey = ''){
     })
 
     $('#generatesecret').off('click').on('click',function(event){
-        $('#uedit_secret').val(rnd(20, rnd.alphaUpper, rnd.alphaLower, rnd.num, rnd.special));
+        $('#uedit_secret').val(rnd(20, rnd.alphaUpper, rnd.alphaLower, rnd.num));
         event.preventDefault()
         event.stopPropagation();
         return false;
