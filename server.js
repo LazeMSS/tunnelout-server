@@ -987,7 +987,7 @@ export default function (opt) {
                     return;
                 });
             } else {
-                debug('Client(%s) request: "%s" host not found  - redirecting to main handler', clientIPadr, hostname);
+                // debug('Client(%s) request: "%s" host not found  - redirecting to main handler', clientIPadr, hostname);
                 appCallback(req, res);
             }
             return;
