@@ -2,7 +2,7 @@
   "author": "Mikkel Skovgaard <lazedk@gmail.com>",
   "name": "tunnelout-server",
   "description": "expose localhost to the world",
-  "version": "0.5",
+  "version": "0.6",
   "license": "MIT",
   "repository": {
     "type": "git",
