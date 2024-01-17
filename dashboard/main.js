@@ -249,7 +249,6 @@ function ajaxError(message, tech) {
         'time' : new Date().toLocaleString()
     };
     $('#alertmsg [data-alertdata]').each(function(idx,field){
-        console.log(replaceMent[$(field).data('alertdata')],field);
         $(field).html(replaceMent[$(field).data('alertdata')]);
     });
     $('#alertmsg').removeClass('d-none');
@@ -411,7 +410,6 @@ function clientEdit(data,skey = ''){
         },json);
         return false;
     }).removeClass('was-validated');
-
     $('#clientTableView').hide();
     $('#clientEditForm').show();
     $('#clientEditForm input')[0].focus();
@@ -531,11 +529,7 @@ function buildDashCards(data, target) {
         if ($('#dashcard_' + key).length) {
             // Last 10 client requests is special
             if (target == 'clientdashboard' && key == 'stats') {
-                $('#requestTable').remove();
-                if (dataSet.last10request.length > 0) {
-                    reqTable = buildRequestTable(dataSet);
-                    $('#dashcard_stats div.card-body').append(reqTable);
-                }
+                buildRequestTable(dataSet.last10request);
                 delete dataSet.last10request;
             }
 
@@ -566,11 +560,10 @@ function buildDashCards(data, target) {
         var listGroup = clon.find('.list-group');
 
         // Last 10 requests is special
+        var updateClientReq=false;
         if (target == 'clientdashboard' && key == 'stats') {
-            if (dataSet.last10request.length > 0) {
-                reqTable = buildRequestTable(dataSet);
-                listGroup.after(reqTable);
-            }
+            updateClientReq = dataSet.last10request;
+            listGroup.after($($('#requesttemplate').clone().contents()));
             delete dataSet.last10request;
         }
 
@@ -590,6 +583,9 @@ function buildDashCards(data, target) {
         clon.prop('id', 'dashcard_' + key);
         $('#' + target).append(clon);
 
+        if (updateClientReq !== false){
+            buildRequestTable(updateClientReq);
+        }
         // Update client data
         if (buildclientlist){
             buildAdminClientList(dataSet);
@@ -710,22 +706,24 @@ function showConfirm(header, body, callbackf) {
 }
 
 function buildRequestTable(dataSet) {
-    var th = '<thead><tr>';
-    Object.keys(dataSet.last10request[0]).map(function (key, index) {
+    if (dataSet.length == 0){
+        $('#requestTable').hide();
+        return;
+    }
+    $('#requestTable tbody, #requestTable thead').empty();
+
+    // make th from data set
+    var th = '<tr>';
+    Object.keys(dataSet[0]).map(function (key, index) {
+        console.log(key);
         th += '<th>' + sysToUsrTxt(key) + '</th>';
     });
-    th += '</tr></thead>';
-    var reqTable = $(
-        `<div class="table-responsive" id="requestTable">
-            <table class="mb-0 caption-top text-nowrap table table-sm table-hover">
-                <caption>Last 10 requests seen</caption>
-                ${th}
-                <tbody class="align-middle"></tbody>
-            </table>
-        </div>`
-    );
-    var tbody = reqTable.find('tbody');
-    $.each(dataSet.last10request, function (x, reqdat) {
+    th += '</tr>';
+    $('#requestTable thead').append(th);
+    // Container able
+
+    var tbody = $('#requestTable tbody');
+    $.each(dataSet, function (x, reqdat) {
         var tr = $('<tr>');
         $.each(reqdat, function (key, celldat) {
             // Show headers
@@ -767,7 +765,6 @@ function buildRequestTable(dataSet) {
         });
         tbody.append(tr);
     });
-    return reqTable;
 }
 
 // Update just values not entire UI
