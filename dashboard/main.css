@@ -11,9 +11,19 @@
 }
 
 #clientList{
-	max-height: calc(100% - 250px);
+	max-height: calc(100% - 150px);
 	overflow-y: auto;
 	min-height: 200px;
+}
+#clientList.filter{
+	max-height: calc(100% - 195px);
+}
+#clientList table tr:last-child td{
+	border-bottom: none;
+}
+
+#clientFilter{
+	max-height: 40px	;
 }
 
 .ajax-alert .ts{
@@ -34,9 +44,6 @@
 	pointer-events:none;
 }
 
-body.darkMode div.card,body.darkMode div.modal-content{
-   filter: brightness(0.9);
-}
 
 @media (max-width: 575.98px) {
    span.udatedata{
@@ -45,7 +52,31 @@ body.darkMode div.card,body.darkMode div.modal-content{
 	}
 }
 
-
 #clientTableView div.overflow-auto{
 	max-height: 50vh;
+}
+
+.sortth{
+	cursor: pointer;
+}
+
+.sortth:before{
+	display: none;
+}
+.sortth.activesort:before{
+	display: inline;
+}
+
+.sortth:before{
+	font-family: bootstrap-icons !important;
+	font-style: normal;
+	font-weight: normal !important;
+	font-variant: normal;
+	text-transform: none;
+	vertical-align: -0.125em;
+	content: "\F573";
+	padding-right:5px;
+}
+.sortth.sortasc:before{
+	content: "\F571";
 }

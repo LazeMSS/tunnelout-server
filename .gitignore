@@ -4,3 +4,4 @@ node_modules/
 package-lock.json
 .clients.local.json
 .clients.local-adv.json
+dashboard/userfields.json
