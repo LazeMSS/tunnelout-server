@@ -715,7 +715,6 @@ function buildRequestTable(dataSet) {
     // make th from data set
     var th = '<tr>';
     Object.keys(dataSet[0]).map(function (key, index) {
-        console.log(key);
         th += '<th>' + sysToUsrTxt(key) + '</th>';
     });
     th += '</tr>';
