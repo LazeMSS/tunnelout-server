@@ -180,8 +180,13 @@ export default function (opt) {
         webserveFile(ctx, code + '.html');
     }
 
-    function htmlReplacer(inputFilename){
-        return fs.readFileSync(inputFilename, 'utf-8').replace(/_LOGOURL_/g,logoURL).replace(/_SITETITLE_/g,siteTitle).replace(/_FAVICONPNG_/g,favIconPng).replace(/_FAVICON_/g,favIcon);
+    function htmlReplacer(inputFilename) {
+        return fs
+            .readFileSync(inputFilename, 'utf-8')
+            .replace(/_LOGOURL_/g,logoURL)
+            .replace(/_SITETITLE_/g,siteTitle)
+            .replace(/_FAVICONPNG_/g,favIconPng)
+            .replace(/_FAVICON_/g,favIcon);
     }
 
     /* [WEB DASHBOARD] ----------------------------------------------------------------------------------------------------------------------------------------------------------- */
@@ -218,9 +223,9 @@ export default function (opt) {
             mimetype = mimeTypes[fileExt];
         }
         ctx.set('content-type', mimetype);
-        if (fileExt == 'html' || fileExt == 'htm'){
+        if (fileExt == 'html' || fileExt == 'htm') {
             ctx.body = htmlReplacer(filename);
-        }else{
+        } else {
             ctx.body = fs.readFileSync(filename);
         }
     }
