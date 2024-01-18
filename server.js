@@ -18,6 +18,8 @@ const packageInfo = require('./package');
 const debug = require('debug')('tunnelout-server:main');
 const path = require('path');
 const os = require('os');
+const util = require('util');
+const execPromise = util.promisify(require('child_process').exec);
 
 export default function (opt) {
     opt = opt || {};
@@ -183,10 +185,10 @@ export default function (opt) {
     function htmlReplacer(inputFilename) {
         return fs
             .readFileSync(inputFilename, 'utf-8')
-            .replace(/_LOGOURL_/g,logoURL)
-            .replace(/_SITETITLE_/g,siteTitle)
-            .replace(/_FAVICONPNG_/g,favIconPng)
-            .replace(/_FAVICON_/g,favIcon);
+            .replace(/_LOGOURL_/g, logoURL)
+            .replace(/_SITETITLE_/g, siteTitle)
+            .replace(/_FAVICONPNG_/g, favIconPng)
+            .replace(/_FAVICON_/g, favIcon);
     }
 
     /* [WEB DASHBOARD] ----------------------------------------------------------------------------------------------------------------------------------------------------------- */
@@ -638,6 +640,27 @@ export default function (opt) {
             },
             packinfo: packageInfo
         };
+    });
+    // whois api
+    router.get('/api/whoisip/:ipadr', async (ctx) => {
+        const whoIsipAdr = ctx.params.ipadr;
+        // Api header key is the first one - if that fails we can use the basic auth stuff
+        if (!adminAuthCheck(ctx, true)) {
+            return;
+        }
+        if (require('net').isIP(whoIsipAdr) == 0) {
+            customErrorWeb(ctx, 404);
+            return;
+        }
+        var whoIsResult = '';
+        try {
+            // wait for exec to complete
+            const { stdout, stderr } = await execPromise('whois ' + whoIsipAdr);
+            ctx.body = { result: stdout };
+        } catch (error) {
+            debug('Failed to execute whos is lookup: ' + whoIsipAdr);
+            ctx.body = { result: null };
+        }
     });
 
     // Get a tunnels status

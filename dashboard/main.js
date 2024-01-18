@@ -45,6 +45,7 @@ var clientEditSet = {
 // Hackish
 var noCpus = 0;
 var headerModal = null;
+var whoismodal = null;
 var confirmModal = null;
 var clientEditor = null;
 var clientTimer = null;
@@ -107,6 +108,7 @@ $(function () {
     var cookie = getCookie('authType');
 
     // Create modal
+    whoismodal = new bootstrap.Modal(document.getElementById('whoislookup'));
     headerModal = new bootstrap.Modal(document.getElementById('headerinspect'));
     confirmModal = new bootstrap.Modal(document.getElementById('confirmDialog'));
     clientEditor = new bootstrap.Modal(document.getElementById('clientEditor'));
@@ -647,6 +649,11 @@ function buildDashCards(data, target) {
                 event.stopImmediatePropagation();
                 event.preventDefault();
                 return false;
+            }).on('click', 'a[data-whoislookup]', function(event) {
+                whoislookup($(this).data('whoislookup'));
+                event.stopImmediatePropagation();
+                event.preventDefault();
+                return false;
             });
 
             $('#clientFilter').on('search keyup', function (event) {
@@ -722,7 +729,7 @@ function buildAdminClientList(dataSet) {
     $.each(dataSet, function (hostname, data) {
         var trow = $(`
             <tr><td><a href="/dashboard/c/` + hostname + `" data-loadclient=` + hostname + ` title="Show client info">` + hostname + `</a></td>
-            <td><a href="https://www.whois.com/whois/` + data.ip_adr + `" target="_blank" title="Whois IP lookup">` + data.ip_adr + `<i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>
+            <td><a href="#" title="Local Whois lookup" data-whoislookup="` + data.ip_adr + `">` + data.ip_adr + `</a><a href="https://www.whois.com/whois/` + data.ip_adr + `" target="_blank" title="Whois IP lookup external"><i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>
             <td class="text-end pe-2 tdactions" data-blank="2">
                 <div class="btn-group" role="group">
                     <a href="//`+ hostname + '.' + window.location.hostname+`" target="_blank" title="Open client web" class="btn btn-sm btn-outline-primary"><i class="bi bi-window"></a></i>
@@ -1002,6 +1009,17 @@ function tableSorter(table,thindx,sortDir){
             tbody.append(trdata[1]);
         });
     }
+}
+
+function whoislookup(ipadr){
+    fetchData('/api/whoisip/' + ipadr, function (data) {
+        if (data == null || ! 'result' in data || data.result == null){
+            // Nothing found
+            return;
+        }
+        $('#whoisdata').html(data.result.trim());
+        whoismodal.show();
+    });
 }
 
 function buildTableSort(table,doSort){
