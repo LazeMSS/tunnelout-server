@@ -22,8 +22,11 @@
 	border-collapse: separate;
 	border-spacing: 0;
 }
+#clientTableEditor tbody tr td:first-child{
+	padding-left: 10px;
+}
 
-#clientList table tr:last-child td, #clientTableEditor tr:last-child td{
+#clientList table tbody tr:last-child td, #clientTableEditor tbody tr:last-child td{
 	border-bottom-width: 0px !important;
 }
 
@@ -72,10 +75,10 @@
 }
 
 .sortth:before{
-	display: none;
+	visibility: hidden;
 }
 .sortth.activesort:before{
-	display: inline;
+	visibility: inherit;
 }
 
 .sortth:before{
@@ -95,6 +98,5 @@
 td[data-blank="1"]:before{
 	content: "﹘";
 	color: var(--bs-secondary-color)!important;
-	margin-left: 50%;
 	opacity: 0.5;
 }

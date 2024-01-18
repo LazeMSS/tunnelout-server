@@ -85,11 +85,13 @@ $(function () {
     }
 
     // Get user defined fields for customer data
-    fetchData("userfields.json",function(data){
-        if (typeof data === 'object'){
-            clientEditSet = Object.assign({}, clientEditSet, data);
-        }
-    });
+    if (isAdmin){
+        fetchData("userfields.json",function(data){
+            if (typeof data === 'object'){
+                clientEditSet = Object.assign({}, clientEditSet, data);
+            }
+        });
+    }
 
     window.addEventListener('popstate', function (e) {
         if (e.state == null || e.state == '/dashboard/') {
@@ -399,7 +401,7 @@ function clientEdit(data,skey = ''){
         <label for="uedit_secret" class="form-label">${tokenField}</label>
         <div class="mb-3 input-group">
             <input type="text" autocomplete="one-time-code" class="form-control" id="uedit_secret" name="newsecret" value="" placeholder="${tokenFieldPH}" ${tokenReq}>
-            <button class="btn btn-outline-secondary" type="button" id="generatesecret" title="Auto generate new secret"><i class="bi bi-shuffle"></i></button>
+            <button class="btn btn-primary" type="button" id="generatesecret" title="Auto generate new secret"><i class="bi bi-shuffle"></i></button>
         </div>`);
 
     // Generate a "random" secret
@@ -453,6 +455,7 @@ function clientEdit(data,skey = ''){
     }).removeClass('was-validated');
     $('#clientTableView').addClass('d-none');
     $('#clientEditForm').removeClass('d-none');
+    $('#clientEditForm input')[0].focus();
 }
 
 
@@ -522,6 +525,9 @@ function sysToUsrTxt(str) {
 function formatData(str) {
     if (typeof str == 'number') {
         return str.toLocaleString();
+    }
+    if (typeof str == "string" && str.match(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/)){
+        return buildwhoislink(str);
     }
     return str;
 }
@@ -649,17 +655,19 @@ function buildDashCards(data, target) {
                 event.stopImmediatePropagation();
                 event.preventDefault();
                 return false;
-            }).on('click', 'a[data-whoislookup]', function(event) {
-                whoislookup($(this).data('whoislookup'));
-                event.stopImmediatePropagation();
-                event.preventDefault();
-                return false;
             });
-
             $('#clientFilter').on('search keyup', function (event) {
                 filterClients($(this).val(),$('#clientList table'));
             });
         }
+
+        // "Global" whois lookup
+        $('#clientList table, #clientdashboard').on('click', 'a[data-whoislookup]', function(event) {
+            whoislookup($(this).data('whoislookup'));
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return false;
+        });
     });
 
     $('#noclients').html(noclients);
@@ -710,7 +718,6 @@ function filterClients(keyword,tableid) {
             var colspan = tbody.find('tr:first-child > td').length;
             tbody.append('<tr class="norowsfound pe-none user-select-none"><td colspan="'+colspan+'" class="text-center pb-3 pt-3"><i class="bi bi-binoculars-fill"></i> Not matches found for <kbd>'+safekeyword+'</kbd></td></tr>');
         }else{
-            console.log(tbody.find('tr.norowsfound > td > kbd'));
             tbody.find('tr.norowsfound  > td >  kbd').html(safekeyword);
         }
     }else{
@@ -729,7 +736,7 @@ function buildAdminClientList(dataSet) {
     $.each(dataSet, function (hostname, data) {
         var trow = $(`
             <tr><td><a href="/dashboard/c/` + hostname + `" data-loadclient=` + hostname + ` title="Show client info">` + hostname + `</a></td>
-            <td><a href="#" title="Local Whois lookup" data-whoislookup="` + data.ip_adr + `">` + data.ip_adr + `</a><a href="https://www.whois.com/whois/` + data.ip_adr + `" target="_blank" title="Whois IP lookup external"><i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>
+            <td>` + buildwhoislink(data.ip_adr) + `
             <td class="text-end pe-2 tdactions" data-blank="2">
                 <div class="btn-group" role="group">
                     <a href="//`+ hostname + '.' + window.location.hostname+`" target="_blank" title="Open client web" class="btn btn-sm btn-outline-primary"><i class="bi bi-window"></a></i>
@@ -817,7 +824,7 @@ function buildRequestTable(dataSet) {
                     event.preventDefault();
                     return false;
                 });
-                tr.append($('<td>').append(headlink));
+                tr.append($('<td class="text-center tdactions">').append(headlink));
                 return true;
             }
 
@@ -826,7 +833,7 @@ function buildRequestTable(dataSet) {
                 celldat = new Date(celldat).toLocaleString();
             }
             if (key == 'ip') {
-                celldat = '<a href="https://whois.domaintools.com/' + celldat + '" target="_blank">' + celldat + '<i class="ps-1 bi bi-box-arrow-up-right"></i></a>';
+                celldat = buildwhoislink(celldat);
             }
             tr.append('<td class="techdata">' + celldat + '</td>');
         });
@@ -1008,6 +1015,13 @@ function tableSorter(table,thindx,sortDir){
         $.each(blankList, function(tkey, trdata){
             tbody.append(trdata[1]);
         });
+    }
+}
+function buildwhoislink(ipadr){
+    if (isAdmin){
+        return `<a href="#" title="Local Whois lookup" data-whoislookup="` + ipadr + `">` + ipadr + `</a><a href="https://www.whois.com/whois/` + ipadr + `" target="_blank" title="Whois IP lookup external"><i class="ps-1 bi bi-box-arrow-up-right"></i></a>`;
+    }else{
+        return `<a href="https://www.whois.com/whois/` + ipadr + `" target="_blank" title="Whois IP lookup external">`+ipadr+`<i class="ps-1 bi bi-box-arrow-up-right"></i></a>`;
     }
 }
 
