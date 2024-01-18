@@ -296,7 +296,7 @@ function showClientEditor(loadClient=''){
             trdata.data('userdata',usrData);
             $.each(clientEditSet, function(refKey, refSet){
                 if (usrData[refKey] == undefined){
-                    trdata.append('<td data-blank="1"><em>blank</em></td>');
+                    trdata.append('<td data-blank="1"></td>');
                 }else{
                     var fieldD = usrData[refKey];
                     trdata.append('<td>'+fieldD+'</td>');
@@ -307,7 +307,7 @@ function showClientEditor(loadClient=''){
             }
 
             // user actions
-            trdata.append(`<td class="text-center" data-blank="1"><button type="button" title="Delete client" data-editaction="clientTrash" class=" btn btn-sm btn-outline-primary"><i class="bi bi-trash"></i></button></td>`);
+            trdata.append(`<td class="text-center" data-blank="2"><button type="button" title="Delete client" data-editaction="clientTrash" class=" btn btn-sm btn-outline-primary"><i class="bi bi-trash-fill"></i></button></td>`);
             // Append to main
             trdata.appendTo('#clientTableEditor tbody');
         });
@@ -675,25 +675,40 @@ function buildDashCards(data, target) {
 }
 
 function filterClients(keyword,tableid) {
-    tableid.find('tbody tr').removeAttr('data-filtershow');
+    var tbody = tableid.find('tbody');
+    tbody.find('tr').removeAttr('data-filtershow');
     if (keyword == '') {
-        tableid.find('tbody tr').removeClass('d-none');
+        tbody.find('tr').removeClass('d-none');
         return;
     }
     keyword = keyword.toLowerCase();
-    tableid.find('tbody tr td:not([data-blank])').each(function () {
+    var rowsfound = false;
+    tbody.find('tr:not(.norowsfound) td:not([data-blank])').each(function () {
         var trpar = $(this).parent();
         if (trpar.data('filtershow') == 1){
             return true;
         }
         var text = $(this).text().toLowerCase();
         if (text.indexOf(keyword) != -1) {
+            rowsfound = true;
             $(this).parent().data('filtershow',1);
             $(this).parent().removeClass('d-none');
         } else {
             $(this).parent().addClass('d-none');
         }
     });
+    if (rowsfound == false){
+        var safekeyword = $('<div>').text(keyword).html();
+        if (!tbody.find('tr.norowsfound').length){
+            var colspan = tbody.find('tr:first-child > td').length;
+            tbody.append('<tr class="norowsfound pe-none user-select-none"><td colspan="'+colspan+'" class="text-center pb-3 pt-3"><i class="bi bi-binoculars-fill"></i> Not matches found for <kbd>'+safekeyword+'</kbd></td></tr>');
+        }else{
+            console.log(tbody.find('tr.norowsfound > td > kbd'));
+            tbody.find('tr.norowsfound  > td >  kbd').html(safekeyword);
+        }
+    }else{
+        tbody.find('tr.norowsfound').remove();
+    }
 }
 
 function buildAdminClientList(dataSet) {
@@ -708,11 +723,11 @@ function buildAdminClientList(dataSet) {
         var trow = $(`
             <tr><td><a href="/dashboard/c/` + hostname + `" data-loadclient=` + hostname + ` title="Show client info">` + hostname + `</a></td>
             <td><a href="https://www.whois.com/whois/` + data.ip_adr + `" target="_blank" title="Whois IP lookup">` + data.ip_adr + `<i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>
-            <td class="text-end pe-2" data-blank="1">
+            <td class="text-end pe-2 tdactions" data-blank="2">
                 <div class="btn-group" role="group">
-                    <a href="//`+ hostname + '.' + window.location.hostname+`" target="_blank" title="Open client web" class="btn btn-sm btn-outline-primary"><i class="bi bi-globe"></a></i>
+                    <a href="//`+ hostname + '.' + window.location.hostname+`" target="_blank" title="Open client web" class="btn btn-sm btn-outline-primary"><i class="bi bi-window"></a></i>
                     <a href="#" title="Edit client" data-editclient="` + hostname + `" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-fill "></a></i>
-                    <a href="#" title="Disconnect client" data-disconnectclient="` + hostname + `" class="btn btn-sm btn-outline-primary"><i class="bi bi-door-closed"></i></a>
+                    <a href="#" title="Disconnect client" data-disconnectclient="` + hostname + `" class="btn btn-sm btn-outline-primary"><i class="bi bi-door-closed-fill"></i></a>
                 </div>
             </td>`);
         tbody.append(trow);

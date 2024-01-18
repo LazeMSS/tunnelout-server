@@ -18,8 +18,17 @@
 #clientList.filter{
 	max-height: calc(100% - 195px);
 }
-#clientList table tr:last-child td{
-	border-bottom: none;
+#clientTableEditor, #clientList table{
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+#clientList table tr:last-child td, #clientTableEditor tr:last-child td{
+	border-bottom-width: 0px !important;
+}
+
+.tdactions{
+	width: 1%;
 }
 
 #clientFilter{
@@ -31,9 +40,7 @@
 	margin-top: 3px;
 }
 
-#clientTableEditor thead{
-	top: -1px;
-}
+
 
 #confirmDialog{
 	z-index: 1500;
@@ -83,4 +90,11 @@
 }
 .sortth.sortdir:before{
 	content: "\F573";
+}
+
+td[data-blank="1"]:before{
+	content: "﹘";
+	color: var(--bs-secondary-color)!important;
+	margin-left: 50%;
+	opacity: 0.5;
 }
