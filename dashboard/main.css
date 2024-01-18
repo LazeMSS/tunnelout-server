@@ -31,6 +31,10 @@
 	margin-top: 3px;
 }
 
+#clientTableEditor thead{
+	top: -1px;
+}
+
 #confirmDialog{
 	z-index: 1500;
 }
@@ -53,7 +57,7 @@
 }
 
 #clientTableView div.overflow-auto{
-	max-height: 50vh;
+	max-height: calc(100vh - 290px);
 }
 
 .sortth{
@@ -74,9 +78,9 @@
 	font-variant: normal;
 	text-transform: none;
 	vertical-align: -0.125em;
-	content: "\F573";
+	content: "\F571";
 	padding-right:5px;
 }
-.sortth.sortasc:before{
-	content: "\F571";
+.sortth.sortdir:before{
+	content: "\F573";
 }

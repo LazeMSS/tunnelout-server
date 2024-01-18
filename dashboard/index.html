@@ -11,8 +11,8 @@
 		<link rel="shortcut icon" href="_FAVICON_" type="image/x-icon">
 		<title>_SITETITLE_: dashboard</title>
 	</head>
-	<body class="bg-light pt-5">
-		<nav class="shadow fixed-top px-3 py-2 navbar navbar-dark bg-dark">
+	<body class="bg-dark-subtle pt-5">
+		<nav class="shadow fixed-top px-3 py-2 navbar bg-dark" data-bs-theme="dark">
 			<div class="container-fluid">
 				<span class="navbar-brand mb-0 h1 p-0"><a class="navbar-brand me-0" href="#"><img src="_FAVICONPNG_" alt="" width="32" height="32" class="d-inline-block align-text-top me-1">_SITETITLE_</a>: <span id="mainheader" class="lead"></span></span>
 				<div class="spinner-border spinner-border-sm text-primary d-none" id="fetchSpinner" role="status">
@@ -41,7 +41,7 @@
 			</div>
 			<div id="serverdashboard" class="d-none row row-cols-1 row-cols-md-1 row-cols-lg-2 row-cols-xxl-2 g-3 p-2"></div>
 			<div id="clientdashboard" class="d-none row row-cols-1 row-cols-md-1 row-cols-lg-1 row-cols-xxl-1 g-3 p-2"></div>
-			<footer class="bg-light fixed-bottom d-flex flex-wrap justify-content-between align-items-center p-2 px-3 my-0 border-top">
+			<footer class="bg-body-tertiary fixed-bottom d-flex flex-wrap justify-content-between align-items-center p-2 px-3 my-0 border-top">
 				<p class="col-md-4 mb-0 text-muted">_SITETITLE_</p>
 				<p class="text-muted mb-0">Updated <span id="lastudpated"></span></p>
 			</footer>
@@ -65,14 +65,14 @@
 			<div class="col w-100 p-2">
 				<div class="card h-100 shadow-sm m-2 servercard">
 					<div class="card-body pb-1 overflow-auto">
-						<div class="position-absolute top-0 end-0 m-3 pe-3"><button type="button" id="editclients" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil-fill me-1"></i>Edit clients</button></div>
+						<div class="position-absolute top-0 end-0 m-3 pe-3"><button type="button" id="editclients" class="btn btn-primary btn-sm"><i class="bi bi-pencil-fill me-1"></i>Edit clients</button></div>
 						<span class="shadow-sm bg-primary bg-gradient badge rounded-pill position-absolute top-0 start-100 translate-middle p-2 mt-1 fs-3"><i class="cardmainicon"></i></span>
 						<h5 class="card-title"></h5>
 						<h1 class="display-1 text-center" id="noclients">0</h1>
-						<input id="clientFilter" type="search" class="noRemove mb-2 form-control" placeholder="Filter clients">
+						<input id="clientFilter" type="search" class="noRemove mb-2 form-control" placeholder="Filter clients" autofocus>
 						<div id="clientList" class="h-100 table-responsive border-bottom border-top">
 							<table class="mb-0 caption-top text-nowrap table table-sm table-hover table-striped">
-								<thead>
+								<thead class="sticky-top">
 									<tr>
 										<th class="sortth">Name</th>
 										<th class="sortth">IP</th>
@@ -131,7 +131,7 @@
 			<div class="modal-dialog modal-lg">
 				<div class="modal-content">
 					<div class="modal-header">
-						<h5 class="modal-title"><i class="bi bi-pencil-fill"></i> Client editor</h5>
+						<h5 class="modal-title"><i class="bi bi-pencil-fill"></i> Client editor<span></span></h5>
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 					</div>
 					<div class="modal-body">
@@ -142,19 +142,26 @@
 								<button type="button" id="clientEditBack" class="btn btn-secondary"><i class="bi bi-caret-left-fill"></i>Back</button>
 							</fieldset>
 						</form>
-						<div class="d-grid gap-2 col-3 mx-auto pb-2">
-							<button type="button" id="newClient" class="btn btn-primary text-nowrap"><i class="bi bi-person-plus-fill me-2"></i>Create new</button>
-						</div>
+						<nav class="navbar navbar-expand-sm bg-body-tertiary border" id="clientEditorTool">
+							<div class="container-fluid">
+								<button type="button" id="newClient" class="btn btn-primary text-nowrap"><i class="bi bi-person-plus-fill me-2"></i>Create new</button>
+								<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navBarClientEditor" aria-controls="navBarClientEditor" aria-expanded="false" aria-label="Toggle navigation">
+									<span class="navbar-toggler-icon"></span>
+								</button>
+								<div class="collapse navbar-collapse" id="navBarClientEditor">
+									<input id="clientEditorFilter" type="search" class="ms-2 form-control" placeholder="Filter clients" autofocus>
+								</div>
+							</div>
+						</nav>
 						<div class="table-responsive" id="clientTableView">
 							<div class="dloading p-4 d-flex justify-content-center d-none">
 								<div class="spinner-border" role="status">
 									<span class="visually-hidden">Loading...</span>
 								</div>
 							</div>
-							<input id="clientFilterEditor" type="search" class="noRemove mb-2 form-control" placeholder="Filter clients">
 							<div class="overflow-auto pe-2">
 								<table id="clientTableEditor" class="table table-sm table-bordered table-striped table-hover align-middle">
-									<thead></thead>
+									<thead class="sticky-top"></thead>
 									<tbody></tbody>
 								</table>
 							</div>

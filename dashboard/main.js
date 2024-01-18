@@ -37,7 +37,8 @@ var templates = {
 var clientEditSet = {
     hostname : {
         type : 'text',
-        name : 'Hostname'
+        name : 'Hostname',
+        required : true
     }
 }
 
@@ -70,7 +71,6 @@ const rnd = (() => {
 
     return Object.assign(((len, ...set) => [...iter(len, set.flat())].join('')), sets);
 })();
-
 // Main load
 $(function () {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches){
@@ -110,6 +110,15 @@ $(function () {
     headerModal = new bootstrap.Modal(document.getElementById('headerinspect'));
     confirmModal = new bootstrap.Modal(document.getElementById('confirmDialog'));
     clientEditor = new bootstrap.Modal(document.getElementById('clientEditor'));
+    document.getElementById('clientEditor').addEventListener('shown.bs.modal', event => {
+        // Autofocus
+        if ($('#clientEditorFilter')[0].offsetParent != null){
+            $('#clientEditorFilter')[0].focus();
+        }
+        if ($('#clientEditForm')[0].offsetParent != null){
+            $('#clientEditForm input')[0].focus();
+        }
+    })
 
     if (cookie == 'client') {
         $('a.navbar-brand').on('click', function (event) {
@@ -177,7 +186,6 @@ $(function () {
         event.stopPropagation();
         return false;
     });
-
 });
 
 function fetchData(url, callbackf) {
@@ -255,14 +263,16 @@ function ajaxError(message, tech) {
 }
 
 function showClientEditor(loadClient=''){
+    $('#clientEditorTool').removeClass('d-none');
+    $('#clientEditor .modal-title span').html('');
     // Reset the table
-    $('#clientEditForm').hide();
+    $('#clientEditForm').addClass('d-none');
     $('#clientTableEditor tbody').html('');
     $('#clientTableEditor thead').html('');
     $('#clientTableView .dloading').removeClass('d-none');
 
     // Filter clients input
-    $('#clientFilterEditor').off('search keyup').on('search keyup', function (event) {
+    $('#clientEditorFilter').off('search keyup').on('search keyup', function (event) {
         filterClients($(this).val(),$('#clientTableEditor'));
     });
 
@@ -285,28 +295,37 @@ function showClientEditor(loadClient=''){
             var trdata = $('<tr role="button" title="Edit client" data-key="'+key+'">' );
             trdata.data('userdata',usrData);
             $.each(clientEditSet, function(refKey, refSet){
-                var fieldD = usrData[refKey] == undefined ? '<em>blank</em>': usrData[refKey];
-                trdata.append('<td>'+fieldD+'</td>');
+                if (usrData[refKey] == undefined){
+                    trdata.append('<td data-blank="1"><em>blank</em></td>');
+                }else{
+                    var fieldD = usrData[refKey];
+                    trdata.append('<td>'+fieldD+'</td>');
+                }
             });
             if (loadClient != '' && usrData['hostname'] == loadClient){
                 trfound = trdata;
             }
 
             // user actions
-            trdata.append(`<td class="text-center"><button type="button" title="Delete client" data-editaction="clientTrash" class=" btn btn-sm btn-outline-primary"><i class="bi bi-trash"></i></button></td>`);
+            trdata.append(`<td class="text-center" data-blank="1"><button type="button" title="Delete client" data-editaction="clientTrash" class=" btn btn-sm btn-outline-primary"><i class="bi bi-trash"></i></button></td>`);
             // Append to main
             trdata.appendTo('#clientTableEditor tbody');
         });
 
+        // direct edit
         if (trfound != null){
-            $('#clientTableView').hide();
+            $('#clientTableView').addClass('d-none');
             trfound.trigger('click');
         }else{
-            $('#clientTableView').show();
+            $('#clientTableView').removeClass('d-none');
         }
         buildTableSort($('#clientTableEditor'),0);
-        if ($('#clientFilter').val() != ""){
-            $('#clientFilterEditor').val($('#clientFilter').val());
+
+        // Prefilter with existing filter from main
+        if ($('#clientEditorFilter').val() != ""){
+            filterClients($('#clientEditorFilter').val(),$('#clientTableEditor'));
+        }else if ($('#clientFilter').val() != ""){
+            $('#clientEditorFilter').val($('#clientFilter').val());
             filterClients($('#clientFilter').val(),$('#clientTableEditor'));
         }
     });
@@ -314,13 +333,23 @@ function showClientEditor(loadClient=''){
 }
 
 function clientEdit(data,skey = ''){
+    $('#clientEditorTool').addClass('d-none');
     var inner = $('#clientEditForm div.innerEdit');
     $('#clientEditForm fieldset').removeAttr('disabled');
     inner.empty();
 
-    var sreq = '';
+    var tokenReq = '';
+    var tokenField = 'Change secret/token';
+    var tokenFieldPH = 'Leave blank to keep existing token';
     if (skey == null){
-        sreq = ' required';
+        tokenReq = ' required';
+        tokenField = 'Secret/token';
+        tokenFieldPH = 'Secret/token client for login';
+        $('#clientEditor .modal-title span').html(' <i class="bi bi-chevron-right"></i> <i class="bi bi-person-plus-fill me-2"></i>Create new');
+    }else{
+        if ('hostname' in data){
+            $('#clientEditor .modal-title span').html(' <i class="bi bi-chevron-right"></i> ' + data.hostname);
+        }
     }
 
     // Build fields
@@ -332,34 +361,42 @@ function clientEdit(data,skey = ''){
     // Fields we have
     $.each(clientEditSet, function(refKey, refSet){
         var curD = '';
+        var fieldReg = '';
         // Remove from missing if we have the data
         if (data != null && refKey in data) {
             curD = data[refKey];
             delete keysnotFound[keysnotFound.indexOf(refKey)];
         }
+        if ('required' in refSet && refSet.required == true){
+            fieldReg = 'required';
+        }
         inner.append(`
             <div class="mb-3">
                 <label for="uedit_${refKey}" class="form-label">${refSet.name}</label>
-                <input type="${refSet.type}" class="form-control" id="uedit_${refKey}" name="${refKey}" value="${curD}" placeholder="${refSet.name}" required>
+                <input type="${refSet.type}" class="form-control" id="uedit_${refKey}" name="${refKey}" value="${curD}" placeholder="${refSet.name}" ${fieldReg}>
             </div>`);
     });
 
     // Data not found so add them
     $.each(keysnotFound,function(item,val){
         if (val != undefined){
+            var fieldReg = '';
+            if ('required' in val && val.required == true){
+                fieldReg = 'required';
+            }
             inner.append(`
             <div class="mb-3">
                 <label for="uedit_${val}" class="form-label">${sysToUsrTxt(val)}</label>
-                <input type="string" class="form-control" id="uedit_${val}" name="${val}" value="${data[val]}" placeholder="${sysToUsrTxt(val)}" required>
+                <input type="string" class="form-control" id="uedit_${val}" name="${val}" value="${data[val]}" placeholder="${sysToUsrTxt(val)}" ${fieldReg}>
             </div>`)
         }
     });
 
     // Add secret token
     inner.append(`
-        <label for="uedit_secret" class="form-label">New secret/token</label>
+        <label for="uedit_secret" class="form-label">${tokenField}</label>
         <div class="mb-3 input-group">
-            <input type="text" autocomplete="one-time-code" class="form-control" id="uedit_secret" name="newsecret" value="" placeholder="Secret token/login" ${sreq}>
+            <input type="text" autocomplete="one-time-code" class="form-control" id="uedit_secret" name="newsecret" value="" placeholder="${tokenFieldPH}" ${tokenReq}>
             <button class="btn btn-outline-secondary" type="button" id="generatesecret" title="Auto generate new secret"><i class="bi bi-shuffle"></i></button>
         </div>`);
 
@@ -387,7 +424,9 @@ function clientEdit(data,skey = ''){
 
         var json = {};
         $('#clientEditForm input').each(function(){
-            json[$(this).attr('name')] = $(this).val();
+            if ($(this).val().trim() != ""){
+                json[$(this).attr('name')] = $(this).val();
+            }
         });
 
         // Update the existing secret?
@@ -410,9 +449,8 @@ function clientEdit(data,skey = ''){
         },json);
         return false;
     }).removeClass('was-validated');
-    $('#clientTableView').hide();
-    $('#clientEditForm').show();
-    $('#clientEditForm input')[0].focus();
+    $('#clientTableView').addClass('d-none');
+    $('#clientEditForm').removeClass('d-none');
 }
 
 
@@ -622,12 +660,12 @@ function buildDashCards(data, target) {
     // Show client filtering?
     if (noclients > 10) {
         $('#clientList').addClass('filter');
-        $('#clientList').show();
+        $('#clientFilter').removeClass('d-none');
         filterClients($('#clientFilter').val(),$('#clientList table'));
     } else {
-        $('#clientFilter').hide();
+        $('#clientFilter').addClass('d-none');
         $('#clientList').removeClass('filter');
-        $('#clientList table tbody tr').show();
+        $('#clientList table tbody tr').removeClass('d-none');
     }
 
     // Cleanup and update
@@ -637,15 +675,23 @@ function buildDashCards(data, target) {
 }
 
 function filterClients(keyword,tableid) {
+    tableid.find('tbody tr').removeAttr('data-filtershow');
     if (keyword == '') {
-        tableid.find('tbody tr').show();
+        tableid.find('tbody tr').removeClass('d-none');
         return;
     }
-    tableid.find('tbody tr').each(function () {
-        if ($(this).text().indexOf(keyword) != -1) {
-            $(this).show();
+    keyword = keyword.toLowerCase();
+    tableid.find('tbody tr td:not([data-blank])').each(function () {
+        var trpar = $(this).parent();
+        if (trpar.data('filtershow') == 1){
+            return true;
+        }
+        var text = $(this).text().toLowerCase();
+        if (text.indexOf(keyword) != -1) {
+            $(this).parent().data('filtershow',1);
+            $(this).parent().removeClass('d-none');
         } else {
-            $(this).hide();
+            $(this).parent().addClass('d-none');
         }
     });
 }
@@ -654,7 +700,7 @@ function buildAdminClientList(dataSet) {
     var tbody = $('#clientList').find('tbody');
     tbody.empty();
     if (Object.keys(dataSet).length == 0){
-        $('#clientList').hide();
+        $('#clientList').addClass('d-none');
         return false;
     }
     // Build the sets
@@ -662,7 +708,7 @@ function buildAdminClientList(dataSet) {
         var trow = $(`
             <tr><td><a href="/dashboard/c/` + hostname + `" data-loadclient=` + hostname + ` title="Show client info">` + hostname + `</a></td>
             <td><a href="https://www.whois.com/whois/` + data.ip_adr + `" target="_blank" title="Whois IP lookup">` + data.ip_adr + `<i class="ps-1 bi bi-box-arrow-up-right"></i></a></td>
-            <td class="text-end pe-2">
+            <td class="text-end pe-2" data-blank="1">
                 <div class="btn-group" role="group">
                     <a href="//`+ hostname + '.' + window.location.hostname+`" target="_blank" title="Open client web" class="btn btn-sm btn-outline-primary"><i class="bi bi-globe"></a></i>
                     <a href="#" title="Edit client" data-editclient="` + hostname + `" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-fill "></a></i>
@@ -671,7 +717,7 @@ function buildAdminClientList(dataSet) {
             </td>`);
         tbody.append(trow);
     });
-    $('#clientList').show();
+    $('#clientList').removeClass('d-none');
 
     buildTableSort($('#clientList table'),0);
 }
@@ -707,7 +753,7 @@ function showConfirm(header, body, callbackf) {
 
 function buildRequestTable(dataSet) {
     if (dataSet.length == 0){
-        $('#requestTable').hide();
+        $('#requestTable').addClass('d-none');
         return;
     }
     $('#requestTable tbody, #requestTable thead').empty();
@@ -891,20 +937,24 @@ function toogleDarkMode(){
         $('html').attr('data-bs-theme','dark');
         document.cookie = 'darkmode=1;expires='+now.toUTCString()+';path=/';
     }
-    $('.bg-light').toggleClass('bg-light bg-dark-subtle');
     $('i.modeicon').toggleClass('bi-moon bi-sun');
 }
 
 // Sort a table ;)
 function tableSorter(table,thindx,sortDir){
+    thindx = thindx + 1;
     var list = [];
-    var trid = 0;
-    table.find('tbody > tr').each(function(){
-        list.push([$($(this).find('td')[thindx]).text(),$(this).clone(true)]);
-        trid++;
+    var blankList = [];
+    var tbody = table.find('tbody');
+    tbody.find('tr td:nth-child('+thindx+')').each(function(){
+        if ($(this).data('blank') == 1){
+            blankList.push([$(this).text(),$(this).parent().clone(true)])
+            return true;
+        }
+        list.push([$(this).text(),$(this).parent().clone(true)]);
     });
     list.sort(function(a, b) {
-        if (sortDir){
+        if (!sortDir){
             if (a[0] > b[0]) {
                 return -1;
             }
@@ -921,10 +971,22 @@ function tableSorter(table,thindx,sortDir){
         }
         return 0;
     });
-    table.find('tbody > tr').remove();
-    $.each(list, function(tkey, trdata){
-        table.find('tbody').append(trdata[1]);
-    });
+    tbody.empty();
+    if (!sortDir){
+        $.each(blankList, function(tkey, trdata){
+            tbody.append(trdata[1]);
+        });
+        $.each(list, function(tkey, trdata){
+            tbody.append(trdata[1]);
+        });
+    }else{
+        $.each(list, function(tkey, trdata){
+            tbody.append(trdata[1]);
+        });
+        $.each(blankList, function(tkey, trdata){
+            tbody.append(trdata[1]);
+        });
+    }
 }
 
 function buildTableSort(table,doSort){
@@ -933,9 +995,15 @@ function buildTableSort(table,doSort){
         table.find('th').each(function(id,it){
             if ($(this).hasClass('sortth')){
                 $(this).off('click touch').on('click touch',function(event){
-                    tableSorter(table,id,$(this).hasClass('sortasc'));
-                    table.find('th').removeClass('activesort');
-                    $(this).toggleClass('sortasc').addClass('activesort');
+                    // if not actively sorted when cliccking we don't change sort direction when clicking it
+                    if ($(this).hasClass('activesort')){
+                        tableSorter(table,id,$(this).hasClass('sortdir'));
+                        $(this).toggleClass('sortdir');
+                    }else{
+                        table.find('th.activesort').removeClass('activesort');
+                        tableSorter(table,id,!$(this).hasClass('sortdir'));
+                        $(this).addClass('activesort');
+                    }
                 });
             }
         })
@@ -945,7 +1013,7 @@ function buildTableSort(table,doSort){
     var curItem = $(table).find('th.activesort');
     var curSortIDX = curItem.index();
     if (curSortIDX > -1){
-        tableSorter(table,curSortIDX,!curItem.hasClass('sortasc'));
+        tableSorter(table,curSortIDX,!curItem.hasClass('sortdir'));
     }else{
         $(table.find('th')[doSort]).trigger('click');
     }
