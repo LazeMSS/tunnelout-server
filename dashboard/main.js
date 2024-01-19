@@ -1,24 +1,28 @@
 /* template design for the dashboard*/
 var templates = {
-    os: {
-        title: 'Operation system (OS)',
-        icon: 'bi bi-cpu'
-    },
-
-    configuration: {
-        title: 'Configuration',
-        icon: 'bi bi-sliders'
-    },
-
-    enviroment: {
-        title: 'Enviroment',
-        icon: 'bi bi-terminal'
-    },
-
+    // Main dashboard
     clients: {
         title: 'Clients',
         icon: 'bi bi-people'
     },
+    os: {
+        title: 'Operating system',
+        icon: 'bi bi-cpu'
+    },
+    enviroment: {
+        title: 'Enviroment',
+        icon: 'bi bi-terminal'
+    },
+    configuration: {
+        title: 'TunnelOut configuration',
+        icon: 'bi bi-sliders'
+    },
+    packinfo: {
+        title: 'Application/Package',
+        icon: 'bi bi-code-square'
+    },
+
+    // Client details
     basic: {
         title: 'Basic',
         icon: 'bi bi-info-lg'
@@ -27,10 +31,6 @@ var templates = {
         title: 'Statistics',
         icon: 'bi bi-activity'
     },
-    packinfo: {
-        title: 'Application/Package',
-        icon: 'bi bi-code-square'
-    }
 };
 
 /* what fields to we store pr. client - hostname is minimum :) */
@@ -565,11 +565,16 @@ function updateTime() {
 // Build main UI/Cards
 function buildDashCards(data, target) {
     var noclients = 0;
-    $.each(data, function (key, dataSet) {
-        var templateSet = { title: sysToUsrTxt(key), icon: 'removeMe' };
-        if (key in templates) {
-            templateSet = templates[key];
+    var unmapped = Object.keys(data);
+
+    // build by template order
+    $.each(templates, function (key, templateSet){
+        // Not in template
+        if (!(key in data)){
+            return true;
         }
+        unmapped = unmapped.filter(item => item !== key);
+        var dataSet = data[key];
 
         // Updated cards --------------------
         if ($('#dashcard_' + key).length) {
@@ -681,6 +686,11 @@ function buildDashCards(data, target) {
         $('#clientFilter').addClass('d-none');
         $('#clientList').removeClass('filter');
         $('#clientList table tbody tr').removeClass('d-none');
+    }
+
+    // Anything not mapped
+    if (unmapped.length > 0){
+        console.error('Found unused api data: ' + unmapped.toString());
     }
 
     // Cleanup and update
