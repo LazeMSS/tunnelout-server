@@ -84,15 +84,6 @@ $(function () {
         }
     }
 
-    // Get user defined fields for customer data
-    if (isAdmin){
-        fetchData("userfields.json",function(data){
-            if (typeof data === 'object'){
-                clientEditSet = Object.assign({}, clientEditSet, data);
-            }
-        });
-    }
-
     window.addEventListener('popstate', function (e) {
         if (e.state == null || e.state == '/dashboard/') {
             loadAdmin(false);
@@ -138,6 +129,15 @@ $(function () {
             event.preventDefault();
             loadAdmin(true);
             return false;
+        });
+    }
+
+    // Get user defined fields for customer data
+    if (isAdmin){
+        fetchData("userfields.json",function(data){
+            if (typeof data === 'object'){
+                clientEditSet = Object.assign({}, clientEditSet, data);
+            }
         });
     }
 
@@ -385,7 +385,7 @@ function clientEdit(data,skey = ''){
     $.each(keysnotFound,function(item,val){
         if (val != undefined){
             var fieldReg = '';
-            if ('required' in val && val.required == true){
+            if ('val' in clientEditSet && 'required' in clientEditSet[val] && clientEditSet[val].required == true){
                 fieldReg = 'required';
             }
             inner.append(`
