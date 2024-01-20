@@ -26,7 +26,7 @@
 	padding-left: 10px;
 }
 
-#clientList table tbody tr:last-child td, #clientTableEditor tbody tr:last-child td{
+#clientList table tbody tr:last-child td, #clientTableEditor tbody tr:last-child td, .trlastChild td{
 	border-bottom-width: 0px !important;
 }
 
@@ -99,4 +99,9 @@ td[data-blank="1"]:before{
 	content: "﹘";
 	color: var(--bs-secondary-color)!important;
 	opacity: 0.5;
+}
+
+mark{
+	padding-left: 0px;
+	padding-right: 0px;
 }

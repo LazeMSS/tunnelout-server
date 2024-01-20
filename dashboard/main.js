@@ -712,38 +712,79 @@ function buildDashCards(data, target) {
 
 function filterClients(keyword,tableid) {
     var tbody = tableid.find('tbody');
-    tbody.find('tr').removeAttr('data-filtershow');
+    tbody.find('.trlastChild').removeClass('trlastChild');
+
+    // Cleanup if no filter is applived
     if (keyword == '') {
         tbody.find('tr.norowsfound').remove();
+        // Remove all active highlights
+        tbody.find('td.highlactive').each(function(){
+            $(this).html($(this).text()).removeClass('.highlactive')
+        });
         tbody.find('tr').removeClass('d-none');
         return;
     }
+
     keyword = keyword.toLowerCase();
-    var rowsfound = false;
+    var anyhits = false;
+
+    var prevTrIdx = -1;
+    var trHit = false;
+    var trpar = null;
     tbody.find('tr:not(.norowsfound) td:not([data-blank])').each(function () {
-        var trpar = $(this).parent();
-        if (trpar.data('filtershow') == 1){
-            return true;
+        trpar = $(this).parent();
+        var newTrIdx = trpar.index();
+
+        // New tr being searched so we hide or show the previous row
+        if (newTrIdx != prevTrIdx){
+            if (prevTrIdx != -1){
+                if (trHit){
+                    trpar.prev().removeClass('d-none');
+                }else{
+                    trpar.prev().addClass('d-none');
+                }
+            }
+            trHit = false;
+            prevTrIdx = newTrIdx;
         }
-        var text = $(this).text().toLowerCase();
-        if (text.indexOf(keyword) != -1) {
-            rowsfound = true;
-            $(this).parent().data('filtershow',1);
-            $(this).parent().removeClass('d-none');
+
+        // Search the actual td content
+        var text = $(this).text();
+        var indexPos = text.toLowerCase().indexOf(keyword);
+
+        // If we have a match: highlight it and set the trHit to indicate we have something on this tr
+        if (indexPos != -1) {
+            trHit = anyhits = true;
+            $(this).html(text.substring(0,indexPos)+ '<mark>'+text.substring(indexPos,indexPos+keyword.length)+'</mark>'+text.substring(indexPos+keyword.length)).addClass('highlactive');
         } else {
-            $(this).parent().addClass('d-none');
+            // Remove any prev highlight it no hits
+            if ($(this).hasClass('highlactive')){
+                $(this).html($(this).text()).removeClass('highlactive')
+            }
         }
     });
-    if (rowsfound == false){
-        var safekeyword = $('<div>').text(keyword).html();
-        if (!tbody.find('tr.norowsfound').length){
-            var colspan = tbody.find('tr:first-child > td').length;
-            tbody.append('<tr class="norowsfound pe-none user-select-none"><td colspan="'+colspan+'" class="text-center pb-3 pt-3"><i class="bi bi-binoculars-fill"></i> No matches for <kbd>'+safekeyword+'</kbd></td></tr>');
-        }else{
-            tbody.find('tr.norowsfound  > td >  kbd').html(safekeyword);
-        }
+
+    // Handle the result from the above loop
+    if (trHit){
+        trpar.removeClass('d-none');
     }else{
+        trpar.addClass('d-none');
+    }
+
+    // We found something
+    if (anyhits){
         tbody.find('tr.norowsfound').remove();
+        tbody.find('tr:not(.d-none)').last().addClass('trlastChild');
+        return;
+    }
+
+    var safekeyword = $('<div>').text(keyword).html();
+    if (!tbody.find('tr.norowsfound').length){
+        var colspan = tbody.find('tr:first-child > td').length;
+        tbody.append('<tr class="norowsfound pe-none user-select-none"><td colspan="'+colspan+'" class="text-center pb-3 pt-3"><i class="bi bi-binoculars-fill"></i> No matches for <kbd>'+safekeyword+'</kbd></td></tr>');
+        tbody.find('tr:not(.d-none)').last().addClass('trlastChild');
+    }else{
+        tbody.find('tr.norowsfound  > td >  kbd').html(safekeyword);
     }
 }
 
