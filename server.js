@@ -618,6 +618,13 @@ export default function (opt) {
             returnClients[key] = { ip_adr: clients[key].ipAdr };
         });
 
+        var returnTotalClients = 0;
+        if (Array.isArray(clientsList)) {
+            returnTotalClients = clientsList.length;
+        }else{
+            returnTotalClients = Object.keys(clientsList).length;
+        }
+
         // Params data quick handler
         let optBack = {};
         Object.keys(opt).forEach(function (key) {
@@ -627,6 +634,7 @@ export default function (opt) {
         });
 
         ctx.body = {
+            totalClients : returnTotalClients,
             clients: returnClients,
             enviroment: {
                 mem: process.memoryUsage(),

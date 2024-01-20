@@ -72,6 +72,7 @@ const rnd = (() => {
 
     return Object.assign(((len, ...set) => [...iter(len, set.flat())].join('')), sets);
 })();
+
 // Main load
 $(function () {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches){
@@ -575,7 +576,7 @@ function updateTime() {
 
 // Build main UI/Cards
 function buildDashCards(data, target) {
-    var noclients = 0;
+    var noclients = totalClients = 0;
     var unmapped = Object.keys(data);
 
     // build by template order
@@ -661,21 +662,31 @@ function buildDashCards(data, target) {
                 event.stopImmediatePropagation();
                 event.preventDefault();
                 return false;
-            }).on('click', 'a[data-disconnectclient]', function(event) {
-                disconnectClient($(this).data('disconnectclient'));
-                event.stopImmediatePropagation();
-                event.preventDefault();
-                return false;
-            }).on('click', 'a[data-editclient]', function(event) {
-                showClientEditor($(this).data('editclient'));
-                event.stopImmediatePropagation();
-                event.preventDefault();
-                return false;
             });
             $('#clientFilter').on('search keyup', function (event) {
                 filterClients($(this).val(),$('#clientList table'));
             });
         }
+        if (target == 'clientdashboard' && key == 'basic' && isAdmin == true) {
+            $('#dashcard_basic .card-title').append(`<div class="btn-group float-end me-3" role="group">
+                <a href="//`+ dataSet.id + '.' + window.location.hostname+`" target="_blank" title="Open client web" class="btn btn-sm btn-outline-primary"><i class="bi bi-window"></a></i>
+                <a href="#" title="Edit client" data-editclient="` + dataSet.id + `" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil-fill "></a></i>
+                <a href="#" title="Disconnect client" data-disconnectclient="` + dataSet.id + `" class="btn btn-sm btn-outline-primary"><i class="bi bi-door-closed-fill"></i></a>
+            </div>`);
+        }
+
+        // "Global" client actions
+        $('#clientList table, #clientdashboard').on('click', 'a[data-disconnectclient]', function(event) {
+            disconnectClient($(this).data('disconnectclient'));
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return false;
+        }).on('click', 'a[data-editclient]', function(event) {
+            showClientEditor($(this).data('editclient'));
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return false;
+        });
 
         // "Global" whois lookup
         $('#clientList table, #clientdashboard').on('click', 'a[data-whoislookup]', function(event) {
@@ -686,7 +697,24 @@ function buildDashCards(data, target) {
         });
     });
 
-    $('#noclients').html(noclients);
+    // Find total clients
+    var pbar = '';
+    if ('totalClients' in data){
+        unmapped = unmapped.filter(item => item !== 'totalClients');
+        totalClients = data.totalClients;
+        if (totalClients > 0){
+            if (noclients == 0){
+                $('#noclientbar > div').css('width','0%');
+            }else{
+                $('#noclientbar > div').css('width',((noclients/totalClients)*100)+'%');
+            }
+            $('#noclientbar').removeClass('d-none');
+        }else{
+            $('#noclientbar').addClass('d-none');
+        }
+    }
+
+    $('#noclients').html(noclients+ " of " +totalClients);
 
     // Show client filtering?
     if (noclients > 10) {
@@ -711,6 +739,9 @@ function buildDashCards(data, target) {
 }
 
 function filterClients(keyword,tableid) {
+    if (keyword == undefined){
+        return;
+    }
     var tbody = tableid.find('tbody');
     tbody.find('.trlastChild').removeClass('trlastChild');
 

@@ -68,7 +68,10 @@
 						<div class="position-absolute top-0 end-0 m-3 pe-3"><button type="button" id="editclients" class="btn btn-primary btn-sm"><i class="bi bi-pencil-fill me-1"></i>Edit clients</button></div>
 						<span class="shadow-sm bg-primary bg-gradient badge rounded-pill position-absolute top-0 start-100 translate-middle p-2 mt-1 fs-3"><i class="cardmainicon"></i></span>
 						<h5 class="card-title"></h5>
-						<h1 class="display-1 text-center" id="noclients">0</h1>
+						<h3 class="display-3 text-center mb-0" id="noclients">0</h1>
+						<div class="progress d-none mx-auto w-25 mb-3" role="progressbar" id="noclientbar">
+							<div class="progress-bar noRemove"></div>
+						</div>
 						<input id="clientFilter" type="search" class="noRemove mb-2 form-control" placeholder="&#x1F50D; Type to search for clients" autofocus autocomplete="off">
 						<div id="clientList" class="h-100 table-responsive border-bottom border-top">
 							<table class="mb-0 caption-top text-nowrap table table-sm table-hover table-striped">
@@ -144,12 +147,15 @@
 						</form>
 						<nav class="navbar navbar-expand-sm bg-body-tertiary border" id="clientEditorTool">
 							<div class="container-fluid">
-								<button type="button" id="newClient" class="btn btn-primary text-nowrap"><i class="bi bi-person-plus-fill me-2"></i>Create new</button>
-								<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navBarClientEditor" aria-controls="navBarClientEditor" aria-expanded="false" aria-label="Toggle navigation">
+								<button type="button" id="newClient" class="btn btn-primary btn-sm text-nowrap"><i class="bi bi-person-plus-fill me-2"></i>Create new</button>
+								<button class="navbar-toggler mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#navBarClientEditor" aria-controls="navBarClientEditor" aria-expanded="false" aria-label="Toggle navigation">
 									<span class="navbar-toggler-icon"></span>
 								</button>
 								<div class="collapse navbar-collapse" id="navBarClientEditor">
-									<input id="clientEditorFilter" type="search" class="ms-2 form-control" placeholder="&#x1F50D; Type to search for clients" autofocus autocomplete="off">
+									<div class="d-none d-sm-block me-3"></div>
+									<div class="d-block d-sm-none mt-3"></div>
+									<input id="clientEditorFilter" type="search" class="form-control-sm form-control" placeholder="&#x1F50D; Type to search for clients" autofocus autocomplete="off">
+									<div class="d-block d-sm-none mb-2"></div>
 								</div>
 							</div>
 						</nav>
