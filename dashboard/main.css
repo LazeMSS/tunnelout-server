@@ -89,7 +89,7 @@
 	text-transform: none;
 	vertical-align: -0.125em;
 	content: "\F571";
-	padding-right:5px;
+	padding-right:1px;
 }
 .sortth.sortdir:before{
 	content: "\F573";

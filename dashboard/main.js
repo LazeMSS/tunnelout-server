@@ -179,6 +179,9 @@ $(function () {
     }).on('click', 'tr', function(event){
         event.preventDefault();
         event.stopPropagation();
+        if (document.getSelection().type == 'Range'){
+            return false;
+        }
         clientEdit($(this).data('userdata'),$(this).data('key'));
         return false;
     });
@@ -286,18 +289,26 @@ function showClientEditor(loadClient=''){
             return;
         }
         var trhead = $('<tr>').appendTo('#clientTableEditor thead');
+        trhead.append('<th class="text-center tdactions sortth"><i class="bi bi-person-fill-check" title="Client online"></i></th>');
         // Make headers for the user editor
         $.each(clientEditSet, function(refKey, refSet){
             trhead.append('<th class="sortth">'+refSet.name+'</th>');
         });
         // user actions
-        trhead.append('<th class="text-center">Delete</th>');
+        trhead.append('<th class="text-center tdactions">Delete</th>');
 
         // Now add each user found
         var trfound = null;
         $.each(data, function (key, usrData) {
             var trdata = $('<tr role="button" title="Edit client" data-key="'+key+'">' );
             trdata.data('userdata',usrData);
+
+            if ('online' in usrData && usrData.online) {
+                trdata.append('<td class="text-center" data-blank="2"><i class="bi bi-check-circle-fill text-success"><span class="d-none">a</span></i></td>');
+            }else{
+                trdata.append('<td class="text-center" data-blank="2"><i class="bi bi-circle-fill text-body-tertiary"><span class="d-none">z</span></i></td>');
+            }
+
             $.each(clientEditSet, function(refKey, refSet){
                 if (usrData[refKey] == undefined){
                     trdata.append('<td data-blank="1"></td>');
@@ -703,6 +714,7 @@ function filterClients(keyword,tableid) {
     var tbody = tableid.find('tbody');
     tbody.find('tr').removeAttr('data-filtershow');
     if (keyword == '') {
+        tbody.find('tr.norowsfound').remove();
         tbody.find('tr').removeClass('d-none');
         return;
     }
@@ -726,7 +738,7 @@ function filterClients(keyword,tableid) {
         var safekeyword = $('<div>').text(keyword).html();
         if (!tbody.find('tr.norowsfound').length){
             var colspan = tbody.find('tr:first-child > td').length;
-            tbody.append('<tr class="norowsfound pe-none user-select-none"><td colspan="'+colspan+'" class="text-center pb-3 pt-3"><i class="bi bi-binoculars-fill"></i> Not matches found for <kbd>'+safekeyword+'</kbd></td></tr>');
+            tbody.append('<tr class="norowsfound pe-none user-select-none"><td colspan="'+colspan+'" class="text-center pb-3 pt-3"><i class="bi bi-binoculars-fill"></i> No matches for <kbd>'+safekeyword+'</kbd></td></tr>');
         }else{
             tbody.find('tr.norowsfound  > td >  kbd').html(safekeyword);
         }
@@ -1052,6 +1064,10 @@ function buildTableSort(table,doSort){
         table.find('th').each(function(id,it){
             if ($(this).hasClass('sortth')){
                 $(this).off('click touch').on('click touch',function(event){
+                    // Dont sort when we have nothing to sort
+                    if (table.find('tr.norowsfound').length){
+                        return false;
+                    }
                     // if not actively sorted when cliccking we don't change sort direction when clicking it
                     if ($(this).hasClass('activesort')){
                         tableSorter(table,id,$(this).hasClass('sortdir'));

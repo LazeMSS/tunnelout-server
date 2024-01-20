@@ -450,8 +450,22 @@ export default function (opt) {
 
         // Load the clients list
         loadClients();
+        if (Array.isArray(clientsList)) {
+            ctx.body = clientsList;
+            return;
+        }
 
-        ctx.body = clientsList;
+        var returnList = clientsList;
+        // Build clients
+        Object.keys(returnList).forEach(function (ckey) {
+            if (manager.hasClient(returnList[ckey].hostname)) {
+                returnList[ckey].online = true;
+            }else{
+                returnList[ckey].online = false;
+            }
+
+        });
+        ctx.body = returnList;
     });
 
     // Add client
