@@ -702,15 +702,10 @@ function buildDashCards(data, target) {
     if ('totalClients' in data){
         unmapped = unmapped.filter(item => item !== 'totalClients');
         totalClients = data.totalClients;
-        if (totalClients > 0){
-            if (noclients == 0){
-                $('#noclientbar > div').css('width','0%');
-            }else{
-                $('#noclientbar > div').css('width',((noclients/totalClients)*100)+'%');
-            }
-            $('#noclientbar').removeClass('d-none');
+        if (totalClients == 0 || noclients == 0){
+            $('#noclientbar > div').css('width','0%');
         }else{
-            $('#noclientbar').addClass('d-none');
+            $('#noclientbar > div').css('width',((noclients/totalClients)*100)+'%');
         }
     }
 

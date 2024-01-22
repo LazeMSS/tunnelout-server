@@ -4,7 +4,7 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<!-- Bootstrap CSS -->
-		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+		<link href="//cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 		<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 		<link rel="stylesheet" href="main.css">
 		<link rel="icon" type="image/png" href="_FAVICONPNG_">
@@ -46,7 +46,7 @@
 				<p class="text-body-secondary mb-0">Updated <span id="lastudpated"></span></p>
 			</footer>
 		</div>
-		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+		<script src="//cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 		<script src="//cdn.jsdelivr.net/npm/cash-dom/dist/cash.min.js"></script>
 		<script src="main.js"></script>
 
@@ -69,9 +69,12 @@
 						<span class="shadow-sm bg-primary bg-gradient badge rounded-pill position-absolute top-0 start-100 translate-middle p-2 mt-1 fs-3"><i class="cardmainicon"></i></span>
 						<h5 class="card-title"></h5>
 						<h3 class="display-3 text-center mb-0" id="noclients">0</h1>
-						<div class="progress d-none mx-auto w-25 mb-3" role="progressbar" id="noclientbar">
-							<div class="progress-bar noRemove"></div>
+						<div class="col-sm-12 col-md-6 mx-auto mb-3">
+							<div class="progress" role="progressbar" id="noclientbar">
+								<div class="progress-bar noRemove"></div>
+							</div>
 						</div>
+
 						<input id="clientFilter" type="search" class="noRemove mb-2 form-control" placeholder="&#x1F50D; Type to search for clients" autofocus autocomplete="off">
 						<div id="clientList" class="h-100 table-responsive border-bottom border-top">
 							<table class="mb-0 caption-top text-nowrap table table-sm table-hover table-striped">
