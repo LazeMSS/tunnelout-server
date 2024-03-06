@@ -37,6 +37,8 @@ export default function (opt) {
     const favIconPng = opt.siteFaviconPng || '/dashboard/gfx/favicon-32x32.png';
     const favIcon = opt.siteFavicon || 'favicon.ico';
     const siteTitle = opt.siteTitle || 'tunnelOut';
+    const kicksameip = opt.kicksameip || false;
+
 
     const keyFile = opt.keyFile;
     const certFile = opt.certFile;
