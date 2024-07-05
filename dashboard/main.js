@@ -395,7 +395,7 @@ function clientEdit(data,skey = ''){
 
     // Data not found so add them
     $.each(keysnotFound,function(item,val){
-        if (val != undefined){
+        if (val != undefined && val != "online"){
             var fieldReg = '';
             if ('val' in clientEditSet && 'required' in clientEditSet[val] && clientEditSet[val].required == true){
                 fieldReg = 'required';
