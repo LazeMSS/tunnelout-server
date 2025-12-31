@@ -23,7 +23,7 @@
 					<i class="bi bi-shield-lock-fill fs-1"></i>
 					<h3 class="display-3 text-nowrap">401 Unauthorized</h1>
 					<hr>
-					<pre class="text-body-secondary"><script>document.write(document.location.href);</script></pre>
+					<pre class="text-body-secondary"><script>document.currentScript.parentElement.textContent = document.location.href;</script></pre>
 				</div>
 			</div>
 		</main>

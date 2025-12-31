@@ -171,7 +171,7 @@ export default function (opt) {
         } else if ('authorization' in headers) {
             keyChk = headers['authorization'].replace('Bearer ', '');
         }
-        if (keyChk != null && apiKey !== undefined && apiKey != '' && apiKey != 'false' && keyChk == apiKey) {
+        if (keyChk != null && apiKey !== undefined && apiKey != '' && apiKey != 'false' && keyChk === apiKey) {
             debug('apiKeyCheck: API auth: APPROVED');
             return true;
         }
@@ -1023,10 +1023,15 @@ export default function (opt) {
                 }
 
                 // Build the api body
-                apiBody = '';
-                req.on('data', (chunk) => {
-                    apiBody += chunk;
-                });
+		let bodySize = 0;
+		apiBody = '';
+		req.on('data', (chunk) => {
+		    bodySize += chunk.length;
+		    if (bodySize > 1e6) { // 1MB limit
+		        req.destroy();
+		    }
+		    apiBody += chunk;
+		});
 
                 req.on('end', () => {
                     // Now we can handle the request

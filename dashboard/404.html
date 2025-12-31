@@ -23,7 +23,7 @@
 					<i class="bi bi-binoculars-fill fs-1"></i>
 					<h3 class="display-3">404 Not Found</h1>
 					<hr>
-					<pre class="text-body-secondary"><script>document.write(document.location.href);</script></pre>
+					<pre class="text-body-secondary"><script>document.currentScript.parentElement.textContent = document.location.href;</script></pre>
 					</script>
 				</div>
 			</div>

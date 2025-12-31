@@ -1,0 +1,16 @@
+[Unit]
+Description=tunnelout server
+After=multi-user.target
+Requires=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/ubuntu/tunnel-server/startserver.sh
+Restart=always
+RestartSec=5
+# Add tunnelout user or use ubuntu
+User=tunnelout
+
+[Install]
+WantedBy=multi-user.target
+
