@@ -431,6 +431,18 @@ function clientEdit(data,skey = ''){
 
     // Submit handling
     $('#clientEditForm').off('submit').on('submit', function (event) {
+        // Validate hostname
+        var hn = $('#uedit_hostname');
+        if (hn.length > 0) {
+            var val = hn.val().toLowerCase();
+            hn.val(val);
+            if (!/^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(val)) {
+                hn[0].setCustomValidity('Hostname must be 4-63 characters, lowercase, alphanumeric and hyphens only.');
+            } else {
+                hn[0].setCustomValidity('');
+            }
+        }
+
         $(this).addClass('was-validated');
         if (!this.checkValidity()) {
             event.preventDefault();

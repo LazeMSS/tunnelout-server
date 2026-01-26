@@ -65,6 +65,17 @@ export default function (opt) {
     let clientsListLoaded = false;
     let clientConnectList = {};
 
+    const loginAttempts = {};
+    // Clean up expired blocks every minute
+    setInterval(() => {
+        const now = Date.now();
+        for (const ip in loginAttempts) {
+            if (loginAttempts[ip].releaseTime < now && loginAttempts[ip].releaseTime !== 0) {
+                delete loginAttempts[ip];
+            }
+        }
+    }, 60000);
+
     let apiBody = null;
 
     /* [CLIENT LOGIN RELATED] ------------------------------------------------------------------------------------------------------------------------------------------------------ */
@@ -835,11 +846,32 @@ export default function (opt) {
             return;
         }
 
+        // Check backoff
+        if (loginAttempts[ctx.request.ip] && loginAttempts[ctx.request.ip].releaseTime > Date.now()) {
+            debug('New endpoint: Client blocked due to too many failed attempts: %s', ctx.request.ip);
+            ctx.status = 429;
+            ctx.body = { errorMsg: 'Too many failed attempts. Please wait.' };
+            return;
+        }
+
         // Check against client list and headers + public server or not
         if (!(await checkClientHeaderLogin(ctx))) {
+            const ip = ctx.request.ip;
+            if (!loginAttempts[ip]) {
+                loginAttempts[ip] = { count: 0, releaseTime: 0 };
+            }
+            loginAttempts[ip].count++;
+            if (loginAttempts[ip].count > 5) {
+                loginAttempts[ip].releaseTime = Date.now() + 1000 * 60 * 5;
+            }
+
             ctx.status = 403;
             ctx.body = { errorMsg: 'Invalid or missing x-client-key header' };
             return;
+        }
+
+        if (loginAttempts[ctx.request.ip]) {
+            delete loginAttempts[ctx.request.ip];
         }
 
         let reqHostname = null;
