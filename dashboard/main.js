@@ -439,7 +439,25 @@ function clientEdit(data,skey = ''){
             if (!/^(?:[a-z0-9][a-z0-9-]{4,63}[a-z0-9]|[a-z0-9]{4,63})$/.test(val)) {
                 hn[0].setCustomValidity('Hostname must be 4-63 characters, lowercase, alphanumeric and hyphens only.');
             } else {
-                hn[0].setCustomValidity('');
+                // Check if hostname is taken
+                var isTaken = false;
+                $('#clientTableEditor tbody tr').each(function () {
+                    var rowData = $(this).data('userdata');
+                    var rowKey = $(this).data('key');
+                    // If editing, ignore self
+                    if (skey != null && rowKey == skey) return true;
+
+                    if (rowData && rowData.hostname == val) {
+                        isTaken = true;
+                        return false;
+                    }
+                });
+
+                if (isTaken) {
+                    hn[0].setCustomValidity('Hostname is already reserved by another client.');
+                } else {
+                    hn[0].setCustomValidity('');
+                }
             }
         }
 
