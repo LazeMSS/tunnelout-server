@@ -657,7 +657,11 @@ export default function (opt) {
 
         // Build clients
         Object.keys(clients).forEach(function (key) {
-            returnClients[key] = { ip_adr: clients[key].ipAdr };
+            returnClients[key] = {
+                ip_adr: clients[key].ipAdr,
+                lastActivity: clients[key].lastActivity,
+                uptime: Math.floor((Date.now() - clients[key].connectedAt) / 1000)
+            };
         });
 
         var returnTotalClients = 0;
@@ -754,7 +758,10 @@ export default function (opt) {
                 secure: client.agent.secure,
                 closed: client.agent.closed,
                 keep_alive: client.agent.keepAlive,
-                keep_alive_ms: client.agent.keepAliveMsecs
+                keep_alive_ms: client.agent.keepAliveMsecs,
+                lastActivity: client.lastActivity,
+                connected_at: client.connectedAt,
+                uptime: Math.floor((Date.now() - client.connectedAt) / 1000)
             },
             stats: client.stats()
         };

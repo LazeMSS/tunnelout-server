@@ -564,7 +564,13 @@ function sysToUsrTxt(str) {
     return str;
 }
 
-function formatData(str) {
+function formatData(str, key) {
+    if (key == 'lastActivity' || key == 'connected_at') {
+        return new Date(str).toLocaleString();
+    }
+    if (key == 'uptime') {
+        return formatUptime(str);
+    }
     if (typeof str == 'number') {
         return str.toLocaleString();
     }
@@ -572,6 +578,21 @@ function formatData(str) {
         return buildwhoislink(str);
     }
     return str;
+}
+
+function formatUptime(seconds) {
+    seconds = Number(seconds);
+    var d = Math.floor(seconds / (3600 * 24));
+    var h = Math.floor(seconds % (3600 * 24) / 3600);
+    var m = Math.floor(seconds % 3600 / 60);
+    var s = Math.floor(seconds % 60);
+
+    var parts = [];
+    if (d > 0) parts.push(d + 'd');
+    if (h > 0) parts.push(h + 'h');
+    if (m > 0) parts.push(m + 'm');
+    parts.push(s + 's');
+    return parts.join(' ');
 }
 
 function calcMemUsage(obj) {
@@ -855,7 +876,9 @@ function buildAdminClientList(dataSet) {
     $.each(dataSet, function (hostname, data) {
         var trow = $(`
             <tr><td><a href="/dashboard/c/` + hostname + `" data-loadclient=` + hostname + ` title="Show client info">` + hostname + `</a></td>
-            <td>` + buildwhoislink(data.ip_adr) + `
+            <td>` + buildwhoislink(data.ip_adr) + `</td>
+            <td>` + formatData(data.uptime, 'uptime') + `</td>
+            <td>` + formatData(data.lastActivity, 'lastActivity') + `</td>
             <td class="text-end pe-2 tdactions" data-blank="2">
                 <div class="btn-group" role="group">
                     <a href="//`+ hostname + '.' + window.location.hostname+`" target="_blank" title="Open client web" class="btn btn-sm btn-outline-primary"><i class="bi bi-window"></a></i>
@@ -987,7 +1010,7 @@ function updateUiItem(parent, data) {
                     .text(prc + '%');
                 return true;
             }
-            item.html(formatData(dataSet));
+            item.html(formatData(dataSet, key));
         }
     });
 }
@@ -1016,7 +1039,7 @@ function buildUlItems(obj, level = 0, parent = null) {
             if (hasChildren != '') {
                 strReturn += buildUlItems(obj[k], level + 3, k);
             } else {
-                strReturn += '<span class="udatedata" id="datavalue_' + makeSafeStr(parent) + '_' + makeSafeStr(k) + '">' + formatData(obj[k]) + '</span>';
+                strReturn += '<span class="udatedata" id="datavalue_' + makeSafeStr(parent) + '_' + makeSafeStr(k) + '">' + formatData(obj[k], k) + '</span>';
                 strReturn += specialData(obj, k, parent);
             }
             strReturn += '</li>';
